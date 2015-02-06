@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+
+=head1 DESCRIPTION
+
+Steal
+
+=cut
+
+use uni::perl;
+
+use Carp;
+use Encode;
+
+use LWP::UserAgent;
+use File::Slurp;
+use Log::Any '$log';
+
+use Log::Any::Adapter 'Stderr';
+
+use HTML::TreeBuilder;
+use Memoize;
+
+
+
+
+my $cache_dir = '.';
+my $top_url = 'http://www.edakuda.ru';
+my $base_url = "$top_url/news/foodholidays/?from=";
+my $step = 9;
+my $max_page = 410;
+
+
+my @items;
+my $page = 0;
+
+while ( $page < $max_page ) {
+    my $p = HTML::TreeBuilder->new();
+    $p->parse(_cached_get($page));
+
+    for my $item ( $p->find_by_attribute(class => 'share_buttons') ) {
+#        <div class="medium darkgray">31 декабря</div>
+#        <div class="mainpage_picture_header"><a href="/news/1035-den-shampanskogo/">День «Шампанского»</a></div>
+        my ($date) = map {$_->as_text()} $item->find_by_attribute(class => 'medium darkgray');
+        my ($anc) = $item->find('a');
+        my $name = $anc->as_text();
+        my $href = $anc->attr('href');
+
+        push @items, {
+            date => $date,
+            name => $name,
+            href => $href,
+        };
+    }
+
+    $page += $step;
+}
+
+
+for my $item ( sort {_sort_key($a) cmp _sort_key($b)} @items ) {
+    say join "\t", $item->{date}, $item->{name}, "$top_url$item->{href}";
+}
+
+
+exit;
+
+
+BEGIN {
+memoize '_sort_key'; 
+sub _sort_key {
+    my ($item) = @_;
+    state $month = do {
+        my @m = qw/января февраля марта апреля мая июня июля августа сентября октября ноября декабря/;
+        my %m = map {( $m[$_] => sprintf("%02d", $_+1))} (0 .. $#m);
+        \%m;
+    };
+
+    my ($mon_str, $day) = reverse split /\s+/, $item->{date};
+    my $mon = $month->{$mon_str}  or carp "Bad month $mon_str";
+    my $key = join q{-}, $mon, sprintf("%02d", $day), $item->{name};
+
+    return $key;
+}
+}
+
+
+sub _cached_get {
+    my ($i) = @_;
+
+    my $cached_file = "$cache_dir/$i.html";
+    return scalar read_file $cached_file, binmode => ':utf8'  if -f $cached_file;
+
+    my $url = $base_url . $i;
+    my $data = LWP::UserAgent->new()->get($url)->decoded_content();
+    croak "Failed to get $url"  if !$data;
+
+    write_file $cached_file, {binmode => ':utf8'}, $data;
+    return $data;
+}
+
+
+

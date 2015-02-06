@@ -19,6 +19,7 @@ use Log::Any::Adapter 'Stderr';
 
 use HTML::TreeBuilder;
 use Memoize;
+use Text::CSV_XS;
 
 
 
@@ -56,27 +57,39 @@ while ( $page < $max_page ) {
 }
 
 
+
+my $csv = Text::CSV_XS->new({ eol => $/ });
+my $file;
+$csv->print(\*STDOUT, ["Start Date", "Subject", "Description"]);
+
 for my $item ( sort {_sort_key($a) cmp _sort_key($b)} @items ) {
-    say join "\t", $item->{date}, $item->{name}, "$top_url$item->{href}";
+    $csv->print(\*STDOUT, [_parsed_date($item->{date}), $item->{name}, "$top_url$item->{href}"]);
 }
 
 
 exit;
 
 
+sub _parsed_date {
+    my ($date_str) = @_;
+    state $month = do {
+        my @m = qw/января февраля марта апреля мая июня июля августа сентября октября ноября декабря/;
+        my %m = map {( $m[$_] => $_+1)} (0 .. $#m);
+        \%m;
+    };
+
+    my ($mon_str, $day) = reverse split /\s+/, $date_str;
+    my $mon = $month->{$mon_str}  or carp "Bad month $mon_str";
+    my $date = sprintf "%04d-%02d-%02d", 2015, $mon, $day;
+    return $date;
+}
+
+
 BEGIN {
 memoize '_sort_key'; 
 sub _sort_key {
     my ($item) = @_;
-    state $month = do {
-        my @m = qw/января февраля марта апреля мая июня июля августа сентября октября ноября декабря/;
-        my %m = map {( $m[$_] => sprintf("%02d", $_+1))} (0 .. $#m);
-        \%m;
-    };
-
-    my ($mon_str, $day) = reverse split /\s+/, $item->{date};
-    my $mon = $month->{$mon_str}  or carp "Bad month $mon_str";
-    my $key = join q{-}, $mon, sprintf("%02d", $day), $item->{name};
+    my $key = join q{-}, _parsed_date($item->{date}), $item->{name};
 
     return $key;
 }

@@ -1,12 +1,14 @@
 #!/usr/bin/perl -w
 
 use uni::perl;
-#use Carp;
+use lib::abs "../../lib";
 
-use LWP::UserAgent;
+use Log::Any::Adapter 'Stderr';
+
+use CachedGet;
+
 use List::Util qw/sum/;
 use List::MoreUtils qw/ uniq natatime /;
-use File::Slurp;
 
 use YAML;
 
@@ -64,8 +66,7 @@ my %result;
 
 for my $source (@sources) {
     my $count;
-    say $source->{url};
-    my $data = _cached_get($source->{url});
+    my $data = cached_get($source->{url});
     my $re = $source->{re} // $d_re;
     my @re_results = $data =~ /$re/gxms;
     croak "not parsed"  if !@re_results;
@@ -95,24 +96,12 @@ for my $id (@ids) {
 my $cnt;
 say Dump [map {++$cnt.": $_ => $rating{$_}"} sort {$rating{$a} <=> $rating{$b}} keys %rating];
 
-say Dump [keys %result];
+# say Dump [keys %result];
 # say Dump [sort {$a->{place}<=>$b->{place}} values %{$result{"2013-11-25"}}];
 
 
 exit;
 
-
-sub _cached_get {
-    my ($url) = @_;
-    my $id = _get_id_from_url($url);
-
-    return read_file($id, {binmode => ':utf8'})  if -f $id;
-
-    state $ua = LWP::UserAgent->new();
-    my $data = $ua->get($url)->decoded_content();
-    write_file $id, {binmode => ':utf8'}, $data;
-    return $data;
-}
 
 
 sub _get_id_from_url {

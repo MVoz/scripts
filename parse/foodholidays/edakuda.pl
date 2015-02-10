@@ -14,7 +14,6 @@ use CachedGet;
 use Carp;
 use Encode;
 
-use Log::Any '$log';
 use Log::Any::Adapter 'Stderr';
 
 use HTML::TreeBuilder;

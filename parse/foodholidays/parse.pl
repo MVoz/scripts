@@ -7,14 +7,14 @@ Steal
 =cut
 
 use uni::perl;
+use lib::abs "../../lib";
+
+use CachedGet;
 
 use Carp;
 use Encode;
 
-use LWP::UserAgent;
-use File::Slurp;
 use Log::Any '$log';
-
 use Log::Any::Adapter 'Stderr';
 
 use HTML::TreeBuilder;
@@ -36,7 +36,7 @@ my $page = 0;
 
 while ( $page < $max_page ) {
     my $p = HTML::TreeBuilder->new();
-    $p->parse(_cached_get($page));
+    $p->parse(cached_get($base_url . $page));
 
     for my $item ( $p->find_by_attribute(class => 'share_buttons') ) {
 #        <div class="medium darkgray">31 декабря</div>
@@ -96,19 +96,6 @@ sub _sort_key {
 }
 
 
-sub _cached_get {
-    my ($i) = @_;
-
-    my $cached_file = "$cache_dir/$i.html";
-    return scalar read_file $cached_file, binmode => ':utf8'  if -f $cached_file;
-
-    my $url = $base_url . $i;
-    my $data = LWP::UserAgent->new()->get($url)->decoded_content();
-    croak "Failed to get $url"  if !$data;
-
-    write_file $cached_file, {binmode => ':utf8'}, $data;
-    return $data;
-}
 
 
 

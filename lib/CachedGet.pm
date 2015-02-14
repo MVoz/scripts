@@ -74,8 +74,8 @@ sub get {
 
 
 sub cached_get {
-    my ($url) = @_;
-    return __PACKAGE__->new()->get($url);
+    my ($url, %opt) = @_;
+    return __PACKAGE__->new(%opt)->get($url);
 }
 
 

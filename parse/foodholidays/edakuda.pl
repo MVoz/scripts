@@ -7,7 +7,9 @@ Steal
 =cut
 
 use uni::perl;
-use lib::abs "../../lib";
+
+use FindBin '$Bin';
+use lib "$Bin/../../lib";
 
 use CachedGet;
 

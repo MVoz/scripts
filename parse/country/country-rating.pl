@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w
 
 use uni::perl;
-use lib::abs "../../lib";
+use FindBin '$Bin'; 
+use lib "$Bin/../../lib";
 
 use Log::Any::Adapter 'Stderr';
 
@@ -23,15 +24,15 @@ my @sources = (
     {url => "http://gtmarket.ru/ratings/corruption-perceptions-index/info",},
 #    {url => "http://gtmarket.ru/ratings/global-age-wath-index/info",},
 #    {
-#        url => "http://gtmarket.ru/news/state/2009/09/20/2179", # Индекс конкурентоспособности IT-отрасли
+#        url => "http://gtmarket.ru/news/state/2009/09/20/2179", # Р�РЅРґРµРєСЃ РєРѕРЅРєСѓСЂРµРЅС‚РѕСЃРїРѕСЃРѕР±РЅРѕСЃС‚Рё IT-РѕС‚СЂР°СЃР»Рё
 #        re => qr{<a\sname="([\w\-]+)"\shref="[/\w\-]+">([^<]+)</a></strong></td>\s*<td\salign="center">([^<]+)</td>}xms,
 #    },
 #    {url => "http://gtmarket.ru/ratings/global-food-security-index/info",},
-#    {url => "http://gtmarket.ru/news/2013/11/25/6418",}, # Рейтинг развития Интернета
-#    {url => "http://gtmarket.ru/news/2014/11/24/6988",}, # Индекс развития информационно-коммуникационных технологий
+#    {url => "http://gtmarket.ru/news/2013/11/25/6418",}, # Р РµР№С‚РёРЅРі СЂР°Р·РІРёС‚РёСЏ Р�РЅС‚РµСЂРЅРµС‚Р°
+#    {url => "http://gtmarket.ru/news/2014/11/24/6988",}, # Р�РЅРґРµРєСЃ СЂР°Р·РІРёС‚РёСЏ РёРЅС„РѕСЂРјР°С†РёРѕРЅРЅРѕ-РєРѕРјРјСѓРЅРёРєР°С†РёРѕРЅРЅС‹С… С‚РµС…РЅРѕР»РѕРіРёР№
     {url => "http://gtmarket.ru/ratings/human-development-index/human-development-index-info",},
     {url => "http://gtmarket.ru/ratings/satisfaction-with-life-index/info",},
-    {url => "http://gtmarket.ru/news/2014/06/25/6834",}, # рейтинг хороших стран 2014
+    {url => "http://gtmarket.ru/news/2014/06/25/6834",}, # СЂРµР№С‚РёРЅРі С…РѕСЂРѕС€РёС… СЃС‚СЂР°РЅ 2014
     {url => "http://gtmarket.ru/ratings/knowledge-economy-index/knowledge-economy-index-info",},
     # http://gtmarket.ru/ratings/governance-matters/governance-matters-info
     {url => "http://gtmarket.ru/ratings/global-innovation-index/info",},
@@ -46,11 +47,11 @@ my @sources = (
     {url => "http://gtmarket.ru/ratings/life-expectancy-index/life-expectancy-index-info",},
     {url => "http://gtmarket.ru/ratings/legatum-prosperity-index/info",},
 #    {url => "http://gtmarket.ru/ratings/internet-development/info",},
-    {url => "http://gtmarket.ru/news/2013/10/02/6282",}, # по уровню развития человеческого капитала
+    {url => "http://gtmarket.ru/news/2013/10/02/6282",}, # РїРѕ СѓСЂРѕРІРЅСЋ СЂР°Р·РІРёС‚РёСЏ С‡РµР»РѕРІРµС‡РµСЃРєРѕРіРѕ РєР°РїРёС‚Р°Р»Р°
     {url => "http://gtmarket.ru/ratings/research-and-development-expenditure/info",},
-    {url => "http://gtmarket.ru/news/2014/04/14/6688",}, # по уровню социального развития 2014
+    {url => "http://gtmarket.ru/news/2014/04/14/6688",}, # РїРѕ СѓСЂРѕРІРЅСЋ СЃРѕС†РёР°Р»СЊРЅРѕРіРѕ СЂР°Р·РІРёС‚РёСЏ 2014
     {
-        url => "http://gtmarket.ru/news/state/2010/07/31/2592", # рейтинг самых счастливых стран
+        url => "http://gtmarket.ru/news/state/2010/07/31/2592", # СЂРµР№С‚РёРЅРі СЃР°РјС‹С… СЃС‡Р°СЃС‚Р»РёРІС‹С… СЃС‚СЂР°РЅ
         re => qr{<a\sname="([\w\-]+)"\shref="[/\w\-]+">([^<]+)</a></strong></td>\s*<td\salign="center">([^<]+)</td>}xms,
     },
     {url => "http://gtmarket.ru/ratings/doing-business/info",},

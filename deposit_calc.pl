@@ -22,6 +22,7 @@ my %opt;
 GetOptions(
     'trace' => sub { Log::Any::Adapter->set('Stderr') },
     'start=s' => \$opt{start},
+    'finish=s' => \$opt{finish},
     'rate=f' => \$opt{rate},
     'days=i' => \$opt{days},
     'sum=f' => \$opt{sum},
@@ -51,7 +52,7 @@ sub dep_calc {
     
     my $rate = $opt{rate}  or croak 'no rate';
     my $start = _date_from_key($opt{start}) || [Today()];
-    my $num_days = $opt{days} || Delta_Days(@{_date_from_key($opt{finish} || croak 'no finish')}, @$start);
+    my $num_days = $opt{days} || Delta_Days(@$start, @{_date_from_key($opt{finish} || croak 'no finish')});
     
     my $sum = $opt{sum} || 0;
     my $sum_perc = 0;
@@ -61,7 +62,7 @@ sub dep_calc {
 
     $log->trace("$num_days days, $rate%, $perc_mode");
 
-    my $repl = $opt{replenishments} || {};
+    my $repl = _format_repl($opt{replenishments} || {});
     
     for my $step_day ( 0 .. $num_days ) {
         my $date = [Add_Delta_Days(@$start, $step_day)];
@@ -92,8 +93,23 @@ sub _date_from_key {
     return if !$key;
     return $key  if ref $key;
 
-    my @date = $key =~ /(\d+)-(\d+)-(\d+)/xms  or croak "unreadable date: $key";
+    my @date;
+    if (@date = $key =~ /(\d{4})-(\d{4})-(\d{4})/xms) {}
+    elsif (@date = reverse ($key =~ /(\d{2}).(\d{2}).(\d{4})/xms)) {}
+    else { croak "unreadable date: $key" }
+
     croak "invalid date: $key"  if !check_date(@date);
         
     return \@date;   
+}
+
+sub _format_repl {
+    my ($irepl) = @_;
+
+    my %repl;
+    while (my ($key, $sum) = each %$irepl) {
+        $repl{_date_key(_date_from_key($key))} = 0+$sum;
+    }
+
+    return \%repl;
 }

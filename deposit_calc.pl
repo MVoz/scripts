@@ -1,9 +1,13 @@
 #!/usr/bin/env perl
 
 use uni::perl;
+
 use Date::Calc qw(:all);
 use Math::Round qw/nearest/;
 use Getopt::Long;
+
+use Date::Holidays::RU qw/is_business_day/;
+use List::MoreUtils qw/none/;
 
 use Log::Any '$log';
 use Log::Any::Adapter;
@@ -13,9 +17,9 @@ use Log::Any::Adapter;
 our %PERC_SUB = (
     at_the_end => sub {0},
     first_day_of_month => sub { shift->[2] == 1 },
+    last_business_day_of_month => \&is_last_business_day_of_month,
 ); 
-$PERC_SUB{monthly} = $PERC_SUB{first_day_of_month};
-
+$PERC_SUB{monthly} = $PERC_SUB{last_business_day_of_month};
 
 
 my %opt;
@@ -94,7 +98,7 @@ sub _date_from_key {
     return $key  if ref $key;
 
     my @date;
-    if (@date = $key =~ /(\d{4})-(\d{4})-(\d{4})/xms) {}
+    if (@date = $key =~ /(\d{4})-(\d{2})-(\d{2})/xms) {}
     elsif (@date = reverse ($key =~ /(\d{2}).(\d{2}).(\d{4})/xms)) {}
     else { croak "unreadable date: $key" }
 
@@ -112,4 +116,19 @@ sub _format_repl {
     }
 
     return \%repl;
+}
+
+
+sub is_last_business_day_of_month {
+    my ($date) = @_;
+    my ($y, $m, $d) = @$date;
+
+    return q{}  if !is_business_day($y, $m, $d);
+
+    my $maxd = Days_in_Month($y, $m);
+    return 1  if $d == $maxd;
+
+    return 1  if none {is_business_day($y, $m, $_)} ($d+1 .. $maxd);
+
+    return 0;
 }

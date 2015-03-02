@@ -29,6 +29,7 @@ GetOptions(
     'start=s' => \$opt{start},
     'finish=s' => \$opt{finish},
     'rate=f' => \$opt{rate},
+    'rate-change=s%' => ($opt{rate_change} //= {}),
     'days=i' => \$opt{days},
     'sum=f' => \$opt{sum},
     'mode=s' => \$opt{perc_mode},
@@ -68,13 +69,17 @@ sub dep_calc {
 
     $log->trace("$num_days days, $rate%, $perc_mode");
 
-    my $repl = _format_repl($opt{replenishments} || {});
+    my $repl = _make_date_hash($opt{replenishments});
+    my $rate_change = _make_date_hash($opt{rate_change});
     
     for my $step_day ( 0 .. $num_days ) {
         my $date = [Add_Delta_Days(@$start, $step_day)];
+        my $date_key = _date_key($date);
+
+        $rate = $rate_change->{$date_key}  if exists $rate_change->{$date_key};
 
         $sum_perc += nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])))  if $step_day > 0;
-        $sum += $repl->{_date_key($date)} || 0;
+        $sum += $repl->{$date_key} || 0;
 
         if ($perc_sub->($date)) {
             $sum += $sum_perc;
@@ -109,15 +114,18 @@ sub _date_from_key {
     return \@date;   
 }
 
-sub _format_repl {
-    my ($irepl) = @_;
 
-    my %repl;
-    while (my ($key, $sum) = each %$irepl) {
-        $repl{_date_key(_date_from_key($key))} = 0+$sum;
+sub _make_date_hash {
+    my ($shash) = @_;
+    $shash //= {};
+
+    my %hash;
+    while (my ($skey, $val) = each %$shash) {
+        my $key = _date_key(_date_from_key($skey));
+        $hash{$key} = $val;
     }
 
-    return \%repl;
+    return \%hash;
 }
 
 

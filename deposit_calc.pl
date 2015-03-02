@@ -13,6 +13,7 @@ use Log::Any '$log';
 use Log::Any::Adapter;
 
 
+our $QUANTUM = 0.00001;
 
 our %PERC_SUB = (
     at_the_end => sub {0},
@@ -32,9 +33,10 @@ GetOptions(
     'sum=f' => \$opt{sum},
     'mode=s' => \$opt{perc_mode},
     'replenishment|repl=s%' => ($opt{replenishments} //= {}),
+    'quantum=f' => \$QUANTUM,
 );
 
-say dep_calc(%opt);
+say sprintf '%.2f', dep_calc(%opt);
 exit;
 
 
@@ -71,7 +73,7 @@ sub dep_calc {
     for my $step_day ( 0 .. $num_days ) {
         my $date = [Add_Delta_Days(@$start, $step_day)];
 
-        $sum_perc += nearest 0.01, $sum * ($rate/100 / (365+!!leap_year($date->[0])))  if $step_day > 0;
+        $sum_perc += nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])))  if $step_day > 0;
         $sum += $repl->{_date_key($date)} || 0;
 
         if ($perc_sub->($date)) {

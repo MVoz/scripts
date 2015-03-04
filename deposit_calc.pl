@@ -78,15 +78,25 @@ sub dep_calc {
 
         $rate = $rate_change->{$date_key}  if exists $rate_change->{$date_key};
 
-        $sum_perc += nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])))  if $step_day > 0;
-        $sum += $repl->{$date_key} || 0;
+        my $d_perc = $step_day == 0
+            ? 0
+            : nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])));
+
+        $sum_perc += $d_perc;
+
+        $log->trace(sprintf "%s: %.2f   %%: +%.2f -> %.2f", _date_key($date), $sum, $d_perc, $sum_perc)  if $log->is_trace;
+
+        if ( $repl->{$date_key} ) {
+            $sum += $repl->{$date_key};
+            $log->trace(sprintf "            %.2f", $sum)  if $log->is_trace;
+        }
 
         if ($perc_sub->($date)) {
             $sum += $sum_perc;
             $sum_perc = 0;
+            $log->trace(sprintf "            %.2f   %%: %.2f", $sum, $sum_perc)  if $log->is_trace;
         }
 
-        $log->trace(sprintf "%s: %.2f, %.2f", _date_key($date), $sum, $sum_perc)  if $log->is_trace;
     }
 
    return $sum + $sum_perc; 

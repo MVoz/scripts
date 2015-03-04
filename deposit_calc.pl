@@ -37,7 +37,7 @@ GetOptions(
     'quantum=f' => \$QUANTUM,
 );
 
-say sprintf '%.2f', dep_calc(%opt);
+say sprintf 'Finally: %.2f', dep_calc(%opt);
 exit;
 
 
@@ -67,21 +67,18 @@ sub dep_calc {
     my $perc_mode = $opt{perc_mode} || 'at_the_end';
     my $perc_sub = $PERC_SUB{$perc_mode}  or croak "wrong perc_mode: $perc_mode";
 
-    $log->trace("$num_days days, $rate%, $perc_mode");
-
     my $repl = _make_date_hash($opt{replenishments});
     my $rate_change = _make_date_hash($opt{rate_change});
-    
-    for my $step_day ( 0 .. $num_days ) {
+
+    $log->trace(sprintf "%s: %.2f  ($num_days days, $rate%%, $perc_mode)", _date_key($start), $sum)  if $log->is_trace;
+
+    for my $step_day ( 1 .. $num_days ) {
         my $date = [Add_Delta_Days(@$start, $step_day)];
         my $date_key = _date_key($date);
 
         $rate = $rate_change->{$date_key}  if exists $rate_change->{$date_key};
 
-        my $d_perc = $step_day == 0
-            ? 0
-            : nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])));
-
+        my $d_perc = nearest $QUANTUM, $sum * ($rate/100 / (365+!!leap_year($date->[0])));
         $sum_perc += $d_perc;
 
         $log->trace(sprintf "%s: %.2f   %%: +%.2f -> %.2f", _date_key($date), $sum, $d_perc, $sum_perc)  if $log->is_trace;

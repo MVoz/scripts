@@ -40,7 +40,7 @@ for my $filename (glob '*') {
     my $new_image = _rotated_by_orientation($scaled_image, $filename);
 
     mkdir $DIR  if !-d $DIR;
-    write_file "$DIR/$filename", $new_image->jpeg($QUALITY);
+    write_file "$DIR/$filename", {binmode => ':raw'}, $new_image->jpeg($QUALITY);
 }
 
 exit;

@@ -15,13 +15,6 @@ use Excel::Writer::XLSX;
 
 use YAML;
 
-my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
-my $sheet = $workbook->add_worksheet();
-
-my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
-$sheet->write(0, $_, $header[$_])  for (0 .. $#header);
-
-
 
 binmode STDOUT, ':encoding(console_out)';
 
@@ -32,7 +25,7 @@ my $p = HTML::TreeBuilder->new();
 my $html = decode cp1251 => scalar read_file $file;
 $p->parse($html);
 
-my $row = 0;
+my @items;
 for my $item ( $p->find_by_attribute(class => 'R') ) {
     my ($name) = map {$_->as_text()} $item->find_by_attribute(class => 'XL');
 
@@ -63,23 +56,43 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
     $name =~ s/(?: (?: Золотая | Серебряная | Инвестиционная) \s*)* монета \s*//ixms;
     $name =~ s/\s+$//xms;
     $name =~ s/^\s+//xms;
+    $record{name} = $name;
+    $record{href} = $href;
 
 #    next if $record{'Металл'} ne 'золото';
 #    next if $name =~ 'продажа от';
     next if $record{'Продажа / Покупка'} =~ 'нет в';
+    next if !_get_number($record{'Продажа'});
+
+    if (my $weight = _get_number($record{'Чистый металл'})) {
+        $record{price} = _get_number($record{'Продажа'}) / $weight;
+    }
+
+    push @items, \%record;
+}
+
+
+
+my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
+my $sheet = $workbook->add_worksheet();
+my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
+$sheet->write(0, $_, $header[$_])  for (0 .. $#header);
+
+my $row = 0;
+for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
+    $row ++;
+    my $col = 0;
+
+    my %record = %$item;
 
     my $weight = _get_number($record{'Чистый металл'});
     my $buy = _get_number($record{'Покупка'});
     my $sell = _get_number($record{'Продажа'});
 
-    next if !$sell;
-
-    $row ++;
-    my $col = 0;
-    $sheet->write_string( $row, $col++, $name );
+    $sheet->write_string( $row, $col++, $record{name} );
 
     $sheet->write_string( $row, $col++, $record{'Металл'} // q{} );
-    $sheet->write_number( $row, $col++, $record{'Проба'} // q{} );
+    $sheet->write_number( $row, $col++, $record{'Проба'} // 0 );
     $sheet->write_string( $row, $col++, $record{'Страна'} // q{} );
     $sheet->write_string( $row, $col++, $record{'Год выпуска'} // q{} );
 
@@ -87,10 +100,10 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
     $sheet->write_number( $row, $col++, $buy );
     $sheet->write_number( $row, $col++, $sell );
 
-    $sheet->write_number( $row, $col++, $weight ? ($sell/$weight) : q{} );
-    $sheet->write_number( $row, $col++, $buy&&$sell ? ($sell-$buy)/$sell : q{} );
+    $sheet->write_number( $row, $col++, $weight ? ($sell/$weight) : 0 );
+    $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0 );
 
-    $sheet->write( $row, $col++, "http://www.artc-derzhava.ru".$href );
+    $sheet->write( $row, $col++, "http://www.artc-derzhava.ru" . $record{href} );
 }
 
 

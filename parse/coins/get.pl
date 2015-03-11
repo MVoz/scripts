@@ -78,6 +78,10 @@ my $sheet = $workbook->add_worksheet();
 my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 
+my $format_weight = $workbook->add_format(num_format => '0.00');
+my $format_price = $workbook->add_format(num_format => '# ##0.00');
+my $format_spread = $workbook->add_format(num_format => '0.00%');
+
 my $row = 0;
 for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
     $row ++;
@@ -96,12 +100,12 @@ for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
     $sheet->write_string( $row, $col++, $record{'Страна'} // q{} );
     $sheet->write_string( $row, $col++, $record{'Год выпуска'} // q{} );
 
-    $sheet->write_number( $row, $col++, $weight );
+    $sheet->write_number( $row, $col++, $weight, $format_weight );
     $sheet->write_number( $row, $col++, $buy );
     $sheet->write_number( $row, $col++, $sell );
 
-    $sheet->write_number( $row, $col++, $weight ? ($sell/$weight) : 0 );
-    $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0 );
+    $sheet->write_number( $row, $col++, $weight ? ($sell/$weight) : 0, $format_price );
+    $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0, $format_spread );
 
     $sheet->write( $row, $col++, "http://www.artc-derzhava.ru" . $record{href} );
 }

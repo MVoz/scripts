@@ -75,6 +75,8 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
 
 my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
 my $sheet = $workbook->add_worksheet();
+$sheet->set_column( 0, 0, 40 );
+
 my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 

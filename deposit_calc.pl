@@ -85,10 +85,10 @@ sub dep_calc {
 
         if ( $repl->{$date_key} ) {
             $sum += $repl->{$date_key};
-            $log->trace(sprintf "            %.2f", $sum)  if $log->is_trace;
+            $log->trace(sprintf "            +%.2f -> %.2f", $repl->{$date_key}, $sum)  if $log->is_trace;
         }
 
-        if ($perc_sub->($date)) {
+        if ($perc_sub->($date) || $step_day==$num_days) {
             $sum += $sum_perc;
             $sum_perc = 0;
             $log->trace(sprintf "            %.2f   %%: %.2f", $sum, $sum_perc)  if $log->is_trace;

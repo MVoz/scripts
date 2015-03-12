@@ -112,8 +112,8 @@ sub _date_from_key {
     return $key  if ref $key;
 
     my @date;
-    if (@date = $key =~ /(\d{4})-(\d{2})-(\d{2})/xms) {}
-    elsif (@date = reverse ($key =~ /(\d{2}).(\d{2}).(\d{4})/xms)) {}
+    if (@date = $key =~ /(\d{4})-(\d{1,2})-(\d{1,2})/xms) {}
+    elsif (@date = reverse ($key =~ /(\d{1,2}).(\d{1,2}).(\d{4})/xms)) {}
     else { croak "unreadable date: $key" }
 
     croak "invalid date: $key"  if !check_date(@date);

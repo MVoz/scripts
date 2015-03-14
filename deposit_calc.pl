@@ -18,6 +18,7 @@ our $QUANTUM = 0.00001;
 our %PERC_SUB = (
     at_the_end => sub {0},
     first_day_of_month => sub { shift->[2] == 1 },
+    first_day_of_quarter => sub { my $d = shift; $d->[2] == 1 && $d->[1] %3 == 1 },
     last_business_day_of_month => \&is_last_business_day_of_month,
 ); 
 $PERC_SUB{monthly} = $PERC_SUB{last_business_day_of_month};

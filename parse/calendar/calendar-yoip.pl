@@ -45,7 +45,7 @@ my %HOLIDAYS_YEARLY = (
 binmode STDOUT, ':encoding(console_out)';
 
 my $base_url = 'http://calendar.yoip.ru/print/%04d-proizvodstvennyj-calendar.html';
-my @years = (2005 .. 2017);
+my @years = (2004 .. 2017);
 
 
 my %correction;
@@ -81,15 +81,16 @@ for my $year (@years) {
 
             my $day_key = sprintf "%02d%02d", $month, $day;
             my $yearly_holiday = $HOLIDAYS_YEARLY{$day_key};
-#            say sprintf "%04d-%02d-%02d: $type", $year, $month, $day  if $yearly_holiday && $type ne 'dayoff';
+
+            carp sprintf "Incompatible: %04d-%02d-%02d is $yearly_holiday, but $type", $year, $month, $day
+                if $yearly_holiday && $type ne 'dayoff';
 
             next if $is_weekend && $type eq 'dayoff';
             next if $yearly_holiday && $type eq 'dayoff';
             next if !$is_weekend && $type eq 'workday';
 
+            #say sprintf "%04d-%02d-%02d: $type", $year, $month, $day;
             push @{$correction{$type}->{$year}}, $day_key;
-
-            say sprintf "%04d-%02d-%02d: $type", $year, $month, $day;
         }
     }
 }

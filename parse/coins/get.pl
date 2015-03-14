@@ -8,6 +8,8 @@ use utf8;
 
 use Encode;
 use Encode::Locale;
+use Getopt::Long;
+
 use URI::Escape;
 use File::Slurp;
 use HTML::TreeBuilder;
@@ -15,24 +17,23 @@ use Excel::Writer::XLSX;
 
 use YAML;
 
-my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
-my $sheet = $workbook->add_worksheet();
 
-my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
-$sheet->write(0, $_, $header[$_])  for (0 .. $#header);
+my $FILTER_EXIST;
+my $FILTER_PRICE;
 
-
+GetOptions(
+    'm|metal=s' => \my $METAL,
+    'n|nonexist!' => \$FILTER_EXIST,
+    'z|zero-price!' => \$FILTER_PRICE,
+    'all' => sub { $FILTER_EXIST = $FILTER_PRICE = 1 },
+) or die;
 
 binmode STDOUT, ':encoding(console_out)';
 
-my $file = "dump.html";
-_download($file)  if !-f $file || -M $file > 0.1;
-
 my $p = HTML::TreeBuilder->new();
-my $html = decode cp1251 => scalar read_file $file;
-$p->parse($html);
+$p->parse(_download());
 
-my $row = 0;
+my @items;
 for my $item ( $p->find_by_attribute(class => 'R') ) {
     my ($name) = map {$_->as_text()} $item->find_by_attribute(class => 'XL');
 
@@ -63,34 +64,65 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
     $name =~ s/(?: (?: Золотая | Серебряная | Инвестиционная) \s*)* монета \s*//ixms;
     $name =~ s/\s+$//xms;
     $name =~ s/^\s+//xms;
+    $record{name} = $name;
+    $record{href} = $href;
 
 #    next if $record{'Металл'} ne 'золото';
 #    next if $name =~ 'продажа от';
-    next if $record{'Продажа / Покупка'} =~ 'нет в';
+
+    my $not_exist = $record{'Продажа / Покупка'} =~ 'нет в';
+    $record{exist} = $not_exist ? 'нет' : 'есть';
+    next  if !$FILTER_EXIST && $not_exist;
+    next  if !$FILTER_PRICE && !_get_number($record{'Продажа'});
+
+    if (my $weight = _get_number($record{'Чистый металл'})) {
+        $record{price} = _get_number($record{'Продажа'}) / $weight;
+    }
+
+    push @items, \%record;
+}
+
+
+
+my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
+my $sheet = $workbook->add_worksheet();
+$sheet->set_column( 0, 0, 40 );
+
+my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Наличие Ссылка/;
+$sheet->write(0, $_, $header[$_])  for (0 .. $#header);
+
+my $format_weight = $workbook->add_format(num_format => '0.00');
+my $format_price = $workbook->add_format(num_format => '# ##0.00');
+my $format_spread = $workbook->add_format(num_format => '0.00%');
+
+my $row = 0;
+for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
+    $row ++;
+    my $col = 0;
+
+    my %record = %$item;
 
     my $weight = _get_number($record{'Чистый металл'});
     my $buy = _get_number($record{'Покупка'});
     my $sell = _get_number($record{'Продажа'});
 
-    next if !$sell;
-
-    $row ++;
-    my $col = 0;
-    $sheet->write_string( $row, $col++, $name );
+    $sheet->write_string( $row, $col++, $record{name} );
 
     $sheet->write_string( $row, $col++, $record{'Металл'} // q{} );
-    $sheet->write_number( $row, $col++, $record{'Проба'} // q{} );
+    $sheet->write_number( $row, $col++, $record{'Проба'} // 0 );
     $sheet->write_string( $row, $col++, $record{'Страна'} // q{} );
     $sheet->write_string( $row, $col++, $record{'Год выпуска'} // q{} );
 
-    $sheet->write_number( $row, $col++, $weight );
-    $sheet->write_number( $row, $col++, $buy );
-    $sheet->write_number( $row, $col++, $sell );
+    $sheet->write_number( $row, $col++, $weight || 0, $format_weight );
+    $sheet->write_number( $row, $col++, $buy || 0 );
+    $sheet->write_number( $row, $col++, $sell || 0 );
 
-    $sheet->write_number( $row, $col++, $weight ? ($sell/$weight) : q{} );
-    $sheet->write_number( $row, $col++, $buy&&$sell ? ($sell-$buy)/$sell : q{} );
+    $sheet->write_number( $row, $col++, $weight ? (($sell || 0)/$weight) : 0, $format_price );
+    $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0, $format_spread );
 
-    $sheet->write( $row, $col++, "http://www.artc-derzhava.ru".$href );
+    $sheet->write_string( $row, $col++, $record{exist} );
+
+    $sheet->write( $row, $col++, "http://www.artc-derzhava.ru" . $record{href} );
 }
 
 
@@ -98,15 +130,24 @@ exit;
 
 sub _get_number {
     my ($str) = @_;
-    return if !$str;
+    return 0 if !$str;
     my ($num) = $str =~ / (?: ^ | (?<= \D) ) ([\d\.\s]+) (?= $ | \D) /xms;
-    return if !$num;
+    return 0 if !$num;
     $num =~ s/\s//gxms;
-    return $num;
+    return $num || 0;
 }
 
 sub _download {
-    my ($file) = @_;
+
+    state $metals = [
+        [1 => qw/ Au золото gold /],
+        [2 => qw/ Ag серебро silver /],
+        [3 => qw/ Pt платина platinum /],
+        [4 => qw/ Pd палладий palladium /],
+    ];
+    state $metal_by_name = +{  map { my $m = $_; map {(lc($_) => $m->[0])} @$m} @$metals  };
+
+    my $metal_code = $metal_by_name->{lc ($METAL || q{})} || 1;
 
 #    curl 'http://www.artc-derzhava.ru/catalogsearch/' -H 'Cookie: PHPSESSID=99e0b7fc8d5539482869fe9f78550da1; __utma=131208031.588198959.1406271664.1409060116.1409202266.6; __utmb=131208031.2.10.1409202266; __utmc=131208031; __utmz=131208031.1406271664.1.1.utmcsr=yandex|utmccn=(organic)|utmcmd=organic; _ym_visorc_4913941=w' -H 'Origin: http://www.artc-derzhava.ru' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: ru,en-US;q=0.8,en;q=0.6' -H 'User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/36.0.1985.125 Chrome/36.0.1985.125 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' -H 'Cache-Control: max-age=0' -H 'Referer: http://www.artc-derzhava.ru/catalogsearch/' -H 'Connection: keep-alive' --data 'opened=1&metal=1&metname%5B1%5D=%E7%EE%EB%EE%F2%EE&metname%5B2%5D=+%F1%E5%F0%E5%E1%F0%EE&metname%5B3%5D=+%EF%EB%E0%F2%E8%ED%E0&metname%5B4%5D=+%EF%E0%EB%EB%E0%E4%E8%E9&probe%5B1%5D=0&probe%5B2%5D=0&probe%5B3%5D=0&probe%5B4%5D=0&weight_from=0&weight_to=0&cat_ids%5B%5D=4&cat_ids%5B%5D=94&cat_ids%5B%5D=99&cat_ids%5B%5D=109&cat_ids%5B%5D=107&cat_ids%5B%5D=202&country=0&epoch=0&year1=0&year2=0&copies1=0&copies2=0&qual=0&price1=&price2=&cprice1=&cprice2=&sorttype=1&sm=1' --compressed
 
@@ -118,7 +159,7 @@ sub _download {
         cprice1 => '',
         cprice2 => '',
         epoch => 0,
-        metal => 1,
+        metal => $metal_code,
         'metname[1]' => 'золото',
         'metname[2]' => ' серебро',
         'metname[3]' => ' платина',
@@ -143,9 +184,12 @@ sub _download {
         map { join q{=}, map { uri_escape encode cp1251 => $_ } ($_, $data{$_}) } 
         sort keys %data;
 
-    my $html = `curl "http://www.artc-derzhava.ru/catalogsearch/" --data "$data" --compressed`;
-    
-    write_file $file, $html;
-    return;
+    my $file = "dump-$metal_code.html";
+    if ( !-f $file || -M $file > 0.1 ) {
+        my $html = `curl "http://www.artc-derzhava.ru/catalogsearch/" --data "$data" --compressed`;
+        write_file $file, $html;
+    }
+
+    return decode cp1251 => scalar read_file $file;
 }
 

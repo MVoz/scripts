@@ -70,7 +70,9 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
 #    next if $record{'Металл'} ne 'золото';
 #    next if $name =~ 'продажа от';
 
-    next  if !$FILTER_EXIST && $record{'Продажа / Покупка'} =~ 'нет в';
+    my $not_exist = $record{'Продажа / Покупка'} =~ 'нет в';
+    $record{exist} = $not_exist ? 'нет' : 'есть';
+    next  if !$FILTER_EXIST && $not_exist;
     next  if !$FILTER_PRICE && !_get_number($record{'Продажа'});
 
     if (my $weight = _get_number($record{'Чистый металл'})) {
@@ -86,7 +88,7 @@ my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
 my $sheet = $workbook->add_worksheet();
 $sheet->set_column( 0, 0, 40 );
 
-my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Ссылка/;
+my @header = qw/Монета Металл Проба Страна Год Вес Покупка Продажа Цена Спред Наличие Ссылка/;
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 
 my $format_weight = $workbook->add_format(num_format => '0.00');
@@ -117,6 +119,8 @@ for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
 
     $sheet->write_number( $row, $col++, $weight ? (($sell || 0)/$weight) : 0, $format_price );
     $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0, $format_spread );
+
+    $sheet->write_string( $row, $col++, $record{exist} );
 
     $sheet->write( $row, $col++, "http://www.artc-derzhava.ru" . $record{href} );
 }

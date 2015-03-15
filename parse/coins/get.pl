@@ -117,7 +117,7 @@ for my $item ( sort {$a->{price} <=> $b->{price}} @items ) {
     $sheet->write_number( $row, $col++, $buy || 0 );
     $sheet->write_number( $row, $col++, $sell || 0 );
 
-    $sheet->write_number( $row, $col++, $weight ? (($sell || 0)/$weight) : 0, $format_price );
+    $sheet->write_number( $row, $col++, $weight ? (($sell || 0)*31.1034/$weight) : 0, $format_price );
     $sheet->write_number( $row, $col++, $buy && $sell ? ($sell-$buy)/$sell : 0, $format_spread );
 
     $sheet->write_string( $row, $col++, $record{exist} );

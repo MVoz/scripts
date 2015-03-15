@@ -30,8 +30,8 @@ my %opt;
 Encode::Locale::decode_argv();
 GetOptions(
     'trace' => sub { Log::Any::Adapter->set('Stderr') },
-    'start=s' => \$opt{start},
-    'finish=s' => \$opt{finish},
+    'start|from=s' => \$opt{start},
+    'finish|to=s' => \$opt{finish},
     'rate=f' => \$opt{rate},
     'rate-change=s%' => ($opt{rate_change} //= {}),
     'days=i' => \$opt{days},
@@ -167,8 +167,12 @@ sub _parse_RU_date {
     my ($date) = @_;
     
     state $months_gen = [ qw/ января февраля марта апреля мая июня июля августа сентября октября ноября декабря / ];
-    state $month_by_name = +{ map {($months_gen->[$_] => $_+1)} (0 .. $#$months_gen) };
-    state $month_re = join q{|}, @$months_gen;
+    state $months_3l = [ qw/ янв фев мар апр май июн июл авг сен окт ноя дек / ];
+    state $month_by_name = +{
+        (map {($months_gen->[$_] => $_+1)} (0 .. $#$months_gen)),
+        (map {($months_3l->[$_] => $_+1)} (0 .. $#$months_3l)),
+    };
+    state $month_re = join q{|}, @$months_gen, @$months_3l;
     state $date_re = qr/ \b (\d{1,2}) \s+ ($month_re) \s+ (\d{4}) (?= \b | г) /xms;
 
     if (my ($d, $mname, $y) = $date =~ $date_re) {

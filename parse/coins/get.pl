@@ -92,7 +92,7 @@ my @header = qw/Монета Металл Проба Страна Год Вес 
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 
 my $format_weight = $workbook->add_format(num_format => '0.00');
-my $format_price = $workbook->add_format(num_format => '# ##0.00');
+my $format_price = $workbook->add_format(num_format => '# ##0');
 my $format_spread = $workbook->add_format(num_format => '0.00%');
 
 my $row = 0;

@@ -22,24 +22,7 @@ use Log::Any::Adapter 'Stderr';
 
 use HTML::TreeBuilder;
 use Date::Calc qw/Day_of_Week/;
-
-
-my %HOLIDAYS_YEARLY = (
-    '0101' => 'Новогодние каникулы',
-    '0102' => 'Новогодние каникулы',
-    '0103' => 'Новогодние каникулы',
-    '0104' => 'Новогодние каникулы',
-    '0105' => 'Новогодние каникулы',
-    '0106' => 'Новогодние каникулы',
-    '0107' => 'Рождество Христово',
-    '0108' => 'Новогодние каникулы',
-    '0223' => 'День защитника Отечества',
-    '0308' => 'Международный женский день',
-    '0501' => 'Праздник Весны и Труда',
-    '0509' => 'День Победы',
-    '0612' => 'День России',
-    '1104' => 'День народного единства',
-);
+use Date::Holidays::RU;
 
 
 binmode STDOUT, ':encoding(console_out)';
@@ -80,7 +63,7 @@ for my $year (@years) {
             my $is_weekend = $dow >= 6;
 
             my $day_key = sprintf "%02d%02d", $month, $day;
-            my $yearly_holiday = $HOLIDAYS_YEARLY{$day_key};
+            my $yearly_holiday = Date::Holidays::RU::_get_holidays_by_year($year)->{$day_key};
 
             carp sprintf "Incompatible: %04d-%02d-%02d is $yearly_holiday, but $type", $year, $month, $day
                 if $yearly_holiday && $type ne 'dayoff';
@@ -98,7 +81,7 @@ for my $year (@years) {
 while ( my ($type, $dates) = each %correction ) {
     say $type;
     for my $year (sort keys %$dates) {
-        say "    $year => [ qw( " . join(q{ }, @{$dates->{$year}}) . " ) ],";
+        say "$year => [ qw( " . join(q{ }, @{$dates->{$year}}) . " ) ],";
     }
 }
 

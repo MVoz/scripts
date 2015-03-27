@@ -34,10 +34,10 @@ GetOptions(
     'finish|to=s' => \$opt{finish},
     'rate=f' => \$opt{rate},
     'rate-change=s%' => ($opt{rate_change} //= {}),
-    'days=i' => \$opt{days},
+    'days|period=i' => \$opt{days},
     'sum=f' => \$opt{sum},
     'mode=s' => \$opt{perc_mode},
-    'replenishment|repl=s%' => ($opt{replenishments} //= {}),
+    'replenishment|repl=f%' => sub { $opt{replenishments}->{_date_key(_date_from_key($_[1]))} += $_[2] },
     'quantum=f' => \$QUANTUM,
     'currency=s' => \$opt{currency},
 );

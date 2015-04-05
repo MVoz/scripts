@@ -84,7 +84,7 @@ for my $item ( $p->find_by_attribute(class => 'R') ) {
 
 
 
-my $workbook = Excel::Writer::XLSX->new( 'coins.xlsx' );
+my $workbook = Excel::Writer::XLSX->new( 'derjava.xlsx' );
 my $sheet = $workbook->add_worksheet();
 $sheet->set_column( 0, 0, 40 );
 

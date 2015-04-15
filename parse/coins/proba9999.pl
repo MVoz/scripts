@@ -33,7 +33,7 @@ my @coins;
 
 for my $page (0 .. 1) {
     my $url = sprintf $base_url, $page * $page_size;
-    my $html = cached_get $url;
+    my $html = cached_get $url, cache_timeout => 1/24;
 
     my $p = HTML::TreeBuilder->new();
     $p->parse($html);

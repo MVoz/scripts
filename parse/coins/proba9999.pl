@@ -20,6 +20,7 @@ use Encode::Locale;
 use Log::Any '$log';
 use Log::Any::Adapter 'Stderr';
 use HTML::TreeBuilder;
+use URI;
 
 use Excel::Writer::XLSX;
 
@@ -52,7 +53,7 @@ for my $page (0 .. $num_pages-1) {
         my %coin;
         $coin{name} = $name;
 
-        $coin{link} = $img_node->attr('href');
+        $coin{link} = URI->new_abs($img_node->attr('href'), $base_url)->as_string();
 
         my ($price_node) = $coin_node->find_by_attribute(class => 'price-list-total');
 
@@ -90,7 +91,7 @@ for my $coin ( sort {$a->{price} <=> $b->{price}} @coins ) {
     $sheet->write_number( $row, $col++, $coin->{buy} );
     $sheet->write_number( $row, $col++, $coin->{sell} );
     $sheet->write_number( $row, $col++, ($coin->{sell} - $coin->{buy})/$coin->{sell}, $format_spread );
-    $sheet->write_string( $row, $col++, $coin->{link} );
+    $sheet->write( $row, $col++, $coin->{link} );
 }
 
 

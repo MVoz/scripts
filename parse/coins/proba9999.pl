@@ -28,10 +28,11 @@ binmode STDOUT, ':encoding(console_out)';
 
 my $base_url = 'http://proba9999.ru/index.php?categoryID=569&sort=Price&direction=DESC&offset=%d';
 my $page_size = 12;
+my $num_pages = 5;
 
 my @coins;
 
-for my $page (0 .. 1) {
+for my $page (0 .. $num_pages-1) {
     my $url = sprintf $base_url, $page * $page_size;
     my $html = cached_get $url, cache_timeout => 1/24;
 
@@ -39,7 +40,10 @@ for my $page (0 .. 1) {
     $p->parse($html);
 
     for my $coin_node ($p->find_by_attribute(class => 'ajax_block_product bordercolor  product_list-3')) {
-        my ($name) = $coin_node->find_by_attribute(class => 'product_img_link')->attr('title');
+        my ($img_node) = $coin_node->find_by_attribute(class => 'product_img_link');
+        next if !$img_node;
+
+        my $name = $img_node->attr('title');
         $name =~ s/(?: (?: Золотая | Серебряная | Инвестиционная) \s*)* монета \s*//ixms;
         $name =~ s/,.*//xms;
         $name =~ s/\s+$//xms;
@@ -47,6 +51,8 @@ for my $page (0 .. 1) {
 
         my %coin;
         $coin{name} = $name;
+
+        $coin{link} = $img_node->attr('href');
 
         my ($price_node) = $coin_node->find_by_attribute(class => 'price-list-total');
 
@@ -68,7 +74,7 @@ my $workbook = Excel::Writer::XLSX->new( 'proba9999.xlsx' );
 my $sheet = $workbook->add_worksheet();
 $sheet->set_column( 0, 0, 40 );
 
-my @header = qw/Монета Покупка Продажа Спред/;
+my @header = qw/Монета Покупка Продажа Спред Ссылка/;
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 
 my $format_weight = $workbook->add_format(num_format => '0.00');
@@ -84,7 +90,7 @@ for my $coin ( sort {$a->{price} <=> $b->{price}} @coins ) {
     $sheet->write_number( $row, $col++, $coin->{buy} );
     $sheet->write_number( $row, $col++, $coin->{sell} );
     $sheet->write_number( $row, $col++, ($coin->{sell} - $coin->{buy})/$coin->{sell}, $format_spread );
-
+    $sheet->write_string( $row, $col++, $coin->{link} );
 }
 
 

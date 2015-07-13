@@ -71,7 +71,7 @@ sub dep_calc {
     my $sum_tax = 0;
 
     my $perc_mode = $opt{perc_mode} || 'at_the_end';
-    my $perc_sub = $PERC_SUB{$perc_mode}  or croak "wrong perc_mode: $perc_mode";
+    my $perc_sub = _get_perc_sub($perc_mode, start => $start);
 
     my $repl = _make_date_hash($opt{replenishments});
     my $rate_change = _make_date_hash($opt{rate_change});
@@ -108,6 +108,35 @@ sub dep_calc {
     }
 
    return $sum + $sum_perc; 
+}
+
+
+sub _get_perc_sub {
+    my ($mode, %opt) = @_;
+
+    if (my ($day) = $mode =~ /^monthly[-_]at[-_](\d+)$/xms ) {
+        return sub {
+            my ($y, $m, $d) = @{shift()};
+            return 1  if $d == $day;
+            return 1  if $d == 1 && $day < 1;
+            my $maxd = Days_in_Month($y, $m);
+            return 1  if $d == $maxd && $day > $maxd;
+            return 0;
+        };
+    }
+
+    if (my ($interval) = $mode =~ /^every[-_](\d+)[-_]days?$/xms ) {
+        return sub {
+            my $delta = Delta_Days(@{$opt{start}}, @{shift()});
+            return 1  if $delta > 0 && !($delta % $interval);
+            return 0;
+        }
+    }
+
+    my $sub = $PERC_SUB{$mode};
+    croak "wrong perc_mode: $mode"  if !$sub;
+
+    return $sub;
 }
 
 

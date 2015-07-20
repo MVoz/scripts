@@ -29,7 +29,7 @@ binmode STDOUT, ':encoding(console_out)';
 
 my $base_url = 'http://proba9999.ru/index.php?categoryID=569&sort=Price&direction=DESC&offset=%d';
 my $page_size = 12;
-my $num_pages = 5;
+my $num_pages = 8;
 
 my @coins;
 

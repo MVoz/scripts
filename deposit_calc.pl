@@ -154,6 +154,7 @@ sub _date_from_key {
     my @date;
     if (@date = $key =~ /(\d{4})-(\d{1,2})-(\d{1,2})/xms) {}
     elsif (@date = reverse ($key =~ /(\d{1,2}).(\d{1,2}).(\d{4})/xms)) {}
+    elsif (@date = reverse ($key =~ /(\d{1,2}).(\d{1,2}).(\d{2})/xms)) { $date[0] += $date[0] > 50 ? 1900 : 2000 }
     elsif (@date = _parse_RU_date($key)) {}
     else { croak "unreadable date: $key" }
 

@@ -64,7 +64,8 @@ sub dep_calc {
     
     my $rate = $opt{rate}  or croak 'no rate';
     my $start = _date_from_key($opt{start}) || [Today()];
-    my $num_days = $opt{days} || Delta_Days(@$start, @{_date_from_key($opt{finish} || croak 'no finish')});
+    my $finish = _date_from_key($opt{finish}) || [Today()];
+    my $num_days = $opt{days} || Delta_Days(@$start, @$finish);
     
     my $sum = $opt{sum} || 0;
     my $sum_perc = 0;

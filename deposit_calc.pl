@@ -5,7 +5,7 @@ use Encode;
 use Encode::Locale;
 
 use Date::Calc qw(:all);
-use Math::Round qw/nearest/;
+use Math::Round qw/round nearest/;
 use Getopt::Long;
 
 use Date::Holidays::RU qw/is_business_day/;
@@ -100,7 +100,7 @@ sub dep_calc {
         }
 
         if ($perc_sub->($date) || $step_day==$num_days) {
-            $sum += $sum_perc - $sum_tax;
+            $sum += $sum_perc - round($sum_tax);
             $sum_perc = 0;
             $sum_tax = 0;
             $log->trace(sprintf "            %.2f   %%: %.2f", $sum, $sum_perc)  if $log->is_trace;

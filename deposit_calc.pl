@@ -40,6 +40,7 @@ GetOptions(
     'replenishment|repl=f%' => sub { $opt{replenishments}->{_date_key(_date_from_key($_[1]))} += $_[2] },
     'quantum=f' => \$QUANTUM,
     'currency=s' => \$opt{currency},
+    'tax-mode=s' => \$opt{tax_mode},
 );
 
 say sprintf 'Finally: %.2f', dep_calc(%opt);
@@ -87,7 +88,7 @@ sub dep_calc {
 
         my $d_perc = $sum * ($rate/100 / (365+!!leap_year($date->[0])));
         $sum_perc += $d_perc;
-        $sum_tax += $d_perc * _get_RU_tax_rate($date, $rate, $opt{currency});
+        $sum_tax += $d_perc * _get_RU_tax_rate($date, $rate, %opt);
 
         $log->trace(
             sprintf "%s: %.2f   %%: +%.2f -> %.2f   tax: %.2f",
@@ -331,9 +332,15 @@ sub _get_RU_tax_threshold {
 }
 
 sub _get_RU_tax_rate {
-    my ($date, $rate, $currency) = @_;
+    my ($date, $rate, %opt) = @_;
 
-    my $threshold = _get_RU_tax_threshold($date, $currency);
-    return 0 if $rate <= $threshold;
-    return ($rate-$threshold)/$rate * 0.35;
+    my $currency = $opt{currency};
+    if ($opt{tax_mode} && $opt{tax_mode} eq '13%') {
+        return 0.13;
+    }
+    else {
+        my $threshold = _get_RU_tax_threshold($date, $currency);
+        return 0 if $rate <= $threshold;
+        return ($rate-$threshold)/$rate * 0.35;
+    }
 }

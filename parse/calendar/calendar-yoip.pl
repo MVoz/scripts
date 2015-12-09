@@ -28,14 +28,15 @@ use Date::Holidays::RU;
 binmode STDOUT, ':encoding(console_out)';
 
 my $base_url = 'http://calendar.yoip.ru/print/%04d-proizvodstvennyj-calendar.html';
-my @years = (2004 .. 2017);
+my @years = (2004 .. 2020);
 
 
 my %correction;
 
 for my $year (@years) {
     my $url = sprintf $base_url, $year;
-    my $html = cached_get $url;
+    my $html = eval { cached_get $url };
+    if (!$html) { carp $@; next }
 
     my $p = HTML::TreeBuilder->new();
     $p->parse($html);
@@ -63,7 +64,7 @@ for my $year (@years) {
             my $is_weekend = $dow >= 6;
 
             my $day_key = sprintf "%02d%02d", $month, $day;
-            my $yearly_holiday = Date::Holidays::RU::_get_holidays_by_year($year)->{$day_key};
+            my $yearly_holiday = Date::Holidays::RU::_get_regular_holidays_by_year($year)->{$day_key};
 
             carp sprintf "Incompatible: %04d-%02d-%02d is $yearly_holiday, but $type", $year, $month, $day
                 if $yearly_holiday && $type ne 'dayoff';
@@ -74,6 +75,7 @@ for my $year (@years) {
 
             #say sprintf "%04d-%02d-%02d: $type", $year, $month, $day;
             push @{$correction{$type}->{$year}}, $day_key;
+            push @{$correction{workday}->{$year}}, $day_key  if $is_weekend && $type eq 'short';
         }
     }
 }

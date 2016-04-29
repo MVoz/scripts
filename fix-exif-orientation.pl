@@ -2,20 +2,26 @@
 
 use uni::perl;
 
-use Getopt::Long;
+use Getopt::Long qw/:config bundling/;
 use File::Find;
 use File::Glob qw(:globally :nocase);
 use Image::ExifTool;
 use Log::Any '$log';
+use Log::Any::Adapter;
 
 
 my $mask = '*.{jpg,jpeg}';
 
+my @log_levels = qw/ info debug trace /;
+my $log_level = 0;
 
 GetOptions(
     'r|recursive!' => \my $recursive,
     'dry-run' => \my $dry_run,
+    'v' => sub {$log_level++  if $log_level<@log_levels},
 ) or die "wrong params, stop";
+
+Log::Any::Adapter->set('Stderr', log_level => $log_levels[$log_level-1])  if $log_level;
 
 my $target = shift @ARGV || ".";
 if (!-d $target) {

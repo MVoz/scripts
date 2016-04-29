@@ -80,7 +80,10 @@ sub process_file {
     }
 
     $log->info("Fixing $file");
-    if (!$dry_run) {
+    if ($dry_run) {
+        say $file;
+    }
+    else {
         $exif->SetNewValue(Orientation => 1, Type => 'ValueConv');
         $exif->WriteInfo($file);
     }

@@ -32,7 +32,7 @@ if ($recursive) {
     find(\&process_dir, $target);
 }
 else {
-    local $File::Find::name = ".";
+    local $File::Find::name = $target;
     process_dir();
 }
 

@@ -2,13 +2,18 @@
 
 use uni::perl;
 
+use Encode;
+use Encode::Locale;
 use Getopt::Long qw/:config bundling/;
 use File::Find;
-use File::Glob qw(:globally :nocase);
-use Image::ExifTool;
+use File::Glob qw(:nocase);
 use Log::Any '$log';
 use Log::Any::Adapter;
 
+use Image::ExifTool;
+
+binmode STDERR, ':encoding(console_out)';
+Encode::Locale::decode_argv();
 
 my $mask = '*.{jpg,jpeg}';
 
@@ -23,10 +28,12 @@ GetOptions(
 
 Log::Any::Adapter->set('Stderr', log_level => $log_levels[$log_level-1])  if $log_level;
 
-my $target = shift @ARGV || ".";
+my $target = encode locale_fs => shift @ARGV || ".";
 if (!-d $target) {
     ($target, $mask) = (".", $target);
 }
+
+$log->trace("    starting from " . decode locale_fs => $target);
 
 if ($recursive) {
     find(\&process_dir, $target);
@@ -42,10 +49,13 @@ exit;
 
 sub process_dir {
     my $dir = $File::Find::name;
+    my $dir_name = decode locale_fs => $dir;
+#    $log->trace("    scanning $dir_name");
     return if !-d $dir;
 
-    $log->info("Searching $dir");
-    for my $file (glob "$dir/$mask") {
+    $log->info("Searching $dir_name");
+    $log->trace(decode locale_fs => "$dir/$mask");
+    for my $file (File::Glob::bsd_glob "$dir/$mask") {
         process_file($file);
     }
 
@@ -55,6 +65,8 @@ sub process_dir {
 
 sub process_file {
     my ($file) = @_;
+    my $file_name = decode locale_fs => $file;
+    $log->trace("    processing $file_name");
 
     my $exif = Image::ExifTool->new();
     $exif->ExtractInfo($file);
@@ -62,24 +74,24 @@ sub process_file {
 
     my ($width, $height) = @$info{'ImageWidth', 'ImageHeight'};
     if (!$width || !$height) {
-        $log->debug("  $file: broken dimensions, skipping");
+        $log->debug("  $file_name: broken dimensions, skipping");
         return;
     }
     if ($width >= $height) {
-        $log->debug("  $file: horizontal");
+        $log->debug("  $file_name: horizontal");
         return;
     }
     my $of = $exif->GetValue('Orientation', 'ValueConv');
     if (!$of) {
-        $log->debug("  $file: no orientation tag");
+        $log->debug("  $file_name: no orientation tag");
         return;
     }
     if ($of != 6 && $of != 8) {
-        $log->debug("  $file: good orientation");
+        $log->debug("  $file_name: good orientation");
         return;
     }
 
-    $log->info("Fixing $file");
+    $log->info("Fixing $file_name");
     if ($dry_run) {
         say $file;
     }

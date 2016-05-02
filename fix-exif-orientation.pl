@@ -97,7 +97,10 @@ sub process_file {
     }
     else {
         $exif->SetNewValue(Orientation => 1, Type => 'ValueConv');
-        $exif->WriteInfo($file);
+        $exif->Options(IgnoreMinorErrors => 1);
+        my $result = $exif->WriteInfo($file);
+        $log->debug("Write result: $result");
+        $log->info("Write failed: " . $exif->GetValue('Error'))  if !$result;
     }
 
     return;

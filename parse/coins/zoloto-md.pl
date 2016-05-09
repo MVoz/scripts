@@ -8,20 +8,11 @@ Steal
 
 use uni::perl;
 
-use FindBin '$Bin';
-use lib "$Bin/../../lib";
-
-use CachedGet;
-
 use Carp;
 use Encode;
 use Encode::Locale;
 
-use Log::Any '$log';
-use Log::Any::Adapter 'Stderr';
 use HTML::TreeBuilder;
-use URI;
-
 use LWP::UserAgent;
 use JSON;
 
@@ -74,7 +65,7 @@ my $workbook = Excel::Writer::XLSX->new( 'zoloto-md.xlsx' );
 my $sheet = $workbook->add_worksheet();
 $sheet->set_column( 0, 0, 40 );
 
-my @header = qw/Монета Вес Покупка Продажа Спред Ссылка/;
+my @header = qw/Монета Вес Покупка Продажа Унция Спред Ссылка/;
 $sheet->write(0, $_, $header[$_])  for (0 .. $#header);
 
 my $format_weight = $workbook->add_format(num_format => '0.00');
@@ -90,6 +81,7 @@ for my $coin ( sort {$a->{price} <=> $b->{price}} @coins ) {
     $sheet->write_number( $row, $col++, $coin->{weight}, $format_weight );
     $sheet->write_number( $row, $col++, $coin->{buy}, $format_price );
     $sheet->write_number( $row, $col++, $coin->{sell}, $format_price );
+    $sheet->write_number( $row, $col++, $coin->{sell}/$coin->{weight}*31.10, $format_price );
     $sheet->write_number( $row, $col++, ($coin->{sell} - $coin->{buy})/$coin->{sell}, $format_spread );
     $sheet->write( $row, $col++, $coin->{link} );
 }

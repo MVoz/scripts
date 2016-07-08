@@ -13,6 +13,10 @@ use lib "$Bin/../../lib";
 
 use Log::Any::Adapter 'Stderr';
 
+use Encode;
+use Encode::Locale;
+use Getopt::Long;
+
 use CachedGet;
 use HTML::TreeBuilder;
 use LWP::UserAgent;
@@ -22,14 +26,37 @@ use URI;
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
+Encode::Locale::decode_argv();
+binmode STDOUT, 'encoding(console_out)';
+binmode STDERR, 'encoding(console_out)';
 
-my ($target, $base_dir) = $ARGV[0];
-my ($code) = $target =~ /(\d+)\D*$/;
-die "Usage: $0 <code> [<dir>]" if !$code;
+GetOptions(
+    'd|base-dir=s' => \my $base_dir,
+    'id=s' => \my @targets,
+    'f|id-from=s' => \my $from,
+    't|id-to=s' => \my $to,
+    'n|num=i' => \my $num,
+);
 
 $base_dir ||= '.';
 
-process_item($code);
+
+push @targets, @ARGV;
+if ($from && $to) {
+    push @targets, ($from .. $to);
+}
+elsif ($from && $num) {
+    push @targets, ($from .. $from+$num);
+}
+
+
+
+for my $target (@targets) {
+    my ($code) = $target =~ /(\d+)\D*$/;
+    die "Invalid target $target" if !$code;
+
+    process_item($code);
+}
 
 
 
@@ -64,7 +91,7 @@ sub process_item {
     }
 =cut
 
-    my $dir = "$base_dir/$name";
+    my $dir = encode locale_fs => "$base_dir/$name";
 
     my ($seq_name, $first_num, $ext) = $html =~ m#$code/(\w+?)(0+1).(\w+)\?sequence=\d#;
     die "Image sequence not detected"  if !$first_num;
@@ -73,7 +100,7 @@ sub process_item {
     for my $n (1 .. 9999) {
         my $filename = sprintf $file_mask, $n;
         my $url = "$img_url/$code/$filename";
-        my $file = "$dir/$filename";
+        my $file = "$dir/" . encode locale_fs => $filename;
 
         next if -f $file;
         say $url;

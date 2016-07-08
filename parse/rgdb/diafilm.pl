@@ -17,13 +17,17 @@ use CachedGet;
 use HTML::TreeBuilder;
 use LWP::UserAgent;
 use Path::Tiny;
+use URI;
 
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
 
-my $target = $ARGV[0];
+my ($target, $base_dir) = $ARGV[0];
 my ($code) = $target =~ /(\d+)\D*$/;
+die "Usage: $0 <code> [<dir>]" if !$code;
+
+$base_dir ||= '.';
 
 process_item($code);
 
@@ -34,8 +38,6 @@ sub process_item {
 
     my $p = HTML::TreeBuilder->new();
     my $html = cached_get("$base_url/$code");
-    my ($first_num, $ext) = $html =~ m#$code/(0+1).(\w+)\?sequence=\d#;
-    die "Image sequence not detected"  if !$first_num;
 
     $p->parse($html);
 
@@ -43,35 +45,63 @@ sub process_item {
     my $author = eval { $p->look_down(_tag => 'span', class => "authors")->as_text() } || 'Nobody';
     my $year = eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() } || 'unk';
 
-    my $dir = "$author - $title ($year)";
-    mkdir $dir;
+    my $name = "$author - $title ($year)";
+    $name =~ s#[\:\*\?\/\"\']#-#g;
+    say $name;
 
-    say $dir;
+=zip
+    if (my $zip_node = $p->look_down(_tag => 'a', href => qr/\.zip\?/)) {
+        my $href = $zip_node->attr("href");
+        $href =~ s/\?.*$//;
+        my $file = "$base_dir/$name.zip";
+        return if -f $file;
 
-    my $file_mask = "%0" . length($first_num) ."d.$ext";
+        my $zip_url = URI->new_abs($href, $base_url)->as_string;
+        say $zip_url;        
+        my $code = _download($zip_url => $file);
+        die "HTTP code $code"  if $code;
+        return;
+    }
+=cut
+
+    my $dir = "$base_dir/$name";
+
+    my ($seq_name, $first_num, $ext) = $html =~ m#$code/(\w+?)(0+1).(\w+)\?sequence=\d#;
+    die "Image sequence not detected"  if !$first_num;
+    my $file_mask = "$seq_name%0" . length($first_num) ."d.$ext";
+
     for my $n (1 .. 9999) {
         my $filename = sprintf $file_mask, $n;
         my $url = "$img_url/$code/$filename";
         my $file = "$dir/$filename";
 
-        say $url;
         next if -f $file;
+        say $url;
 
-        state $ua = LWP::UserAgent->new();
-        my $resp = $ua->get($url);
-        last if $resp->code == 404;
-        die "$resp->code $resp->message"  if !$resp->is_success;
+        mkdir $dir if !-d $dir;
 
-        my $content = $resp->decoded_content;
-        die "Text instead of data" if utf8::is_utf8($content);
-        path($file)->spew_raw($content);
+        my $code = _download($url => $file);
+        last if $code == 404;
+        die "HTTP code $code"  if $code;
     }
 
     return;
 }
 
 
+sub _download {
+    my ($url, $path) = @_;
+    state $ua = LWP::UserAgent->new();
 
+    my $resp = $ua->get($url);
+    return $resp->code  if !$resp->is_success;
+
+    my $content = $resp->decoded_content;
+    die "Text instead of data" if utf8::is_utf8($content);
+    path($path)->spew_raw($content);
+
+    return;
+}
 
 
 

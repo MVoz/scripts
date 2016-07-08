@@ -26,6 +26,13 @@ use URI;
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
+my %type = (
+    film => qr/^\d{5}$/,
+    book => qr/^\d{9}$/,
+    mag => qr/^Imag/,
+);
+
+
 Encode::Locale::decode_argv();
 binmode STDOUT, 'encoding(console_out)';
 binmode STDERR, 'encoding(console_out)';
@@ -36,9 +43,11 @@ GetOptions(
     'f|id-from=s' => \my $from,
     't|id-to=s' => \my $to,
     'n|num=i' => \my $num,
+    'only=s' => \my $only,
 );
 
 $base_dir ||= '.';
+die "Invalid --only"  if $only && !$type{$only};
 
 
 push @targets, @ARGV;
@@ -46,7 +55,7 @@ if ($from && $to) {
     push @targets, ($from .. $to);
 }
 elsif ($from && $num) {
-    push @targets, ($from .. $from+$num);
+    push @targets, ($from .. $from+$num-1);
 }
 
 
@@ -95,6 +104,11 @@ sub process_item {
 
     my ($seq_name, $first_num, $ext) = $html =~ m#$code/(\w+?)(0+1).(\w+)\?sequence=\d#;
     die "Image sequence not detected"  if !$first_num;
+    if ($only && "$seq_name$first_num" !~ $type{$only}) {
+        say "It's not a $only; skipping";
+        return;
+    }
+
     my $file_mask = "$seq_name%0" . length($first_num) ."d.$ext";
 
     for my $n (1 .. 9999) {
@@ -109,6 +123,13 @@ sub process_item {
 
         my $code = _download($url => $file);
         last if $code == 404;
+
+        if ($code == 999) {
+            say "Incomplete book; removing...";
+            path($dir)->remove_tree;
+            last;
+        }   
+
         die "HTTP code $code"  if $code;
     }
 
@@ -124,7 +145,7 @@ sub _download {
     return $resp->code  if !$resp->is_success;
 
     my $content = $resp->decoded_content;
-    die "Text instead of data" if utf8::is_utf8($content);
+    return 999  if utf8::is_utf8($content);
     path($path)->spew_raw($content);
 
     return;

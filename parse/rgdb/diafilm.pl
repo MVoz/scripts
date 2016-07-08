@@ -44,7 +44,7 @@ GetOptions(
     't|id-to=s' => \my $to,
     'n|num=i' => \my $num,
     'only=s' => \my $only,
-);
+) or die;
 
 $base_dir ||= '.';
 die "Invalid --only"  if $only && !$type{$only};
@@ -73,7 +73,11 @@ sub process_item {
     my ($code) = @_;
 
     my $p = HTML::TreeBuilder->new();
-    my $html = cached_get("$base_url/$code");
+    my $html = eval { cached_get("$base_url/$code") };
+    if (!$html) {
+        say "Failed to get $base_url/$code, skipping";
+        return;
+    }
 
     $p->parse($html);
 
@@ -83,7 +87,7 @@ sub process_item {
 
     my $name = "$author - $title ($year)";
     $name =~ s#[\:\*\?\/\"\']#-#g;
-    say $name;
+    say "$code:  $name";
 
 =zip
     if (my $zip_node = $p->look_down(_tag => 'a', href => qr/\.zip\?/)) {
@@ -102,17 +106,21 @@ sub process_item {
 
     my $dir = encode locale_fs => "$base_dir/$name";
 
-    my ($seq_name, $first_num, $ext) = $html =~ m#$code/(\w+?)(0+1).(\w+)\?sequence=\d#;
-    die "Image sequence not detected"  if !$first_num;
-    if ($only && "$seq_name$first_num" !~ $type{$only}) {
-        say "It's not a $only; skipping";
+    my @files = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
+    if (!@files) {
+        say "No sequence found, skipping";
         return;
     }
 
-    my $file_mask = "$seq_name%0" . length($first_num) ."d.$ext";
+    if ($only) {
+        my $fname = $files[0] =~ s/\..+$//r;
+        if ($fname !~ $type{$only}) {
+            say "$fname - it's not a $only; skipping";
+            return;
+        }
+    }
 
-    for my $n (1 .. 9999) {
-        my $filename = sprintf $file_mask, $n;
+    for my $filename (@files) {
         my $url = "$img_url/$code/$filename";
         my $file = "$dir/" . encode locale_fs => $filename;
 

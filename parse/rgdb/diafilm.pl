@@ -27,9 +27,10 @@ my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
 my %type = (
-    film => qr/^\d{5}$/,
-    book => qr/^\d{9}$/,
-    mag => qr/^Imag/,
+    #"<a href="/xmlui/handle/123456789/27090">Диафильмы</a>",
+    film => [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
+    mag  => [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
+    book => [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
 );
 
 
@@ -112,12 +113,9 @@ sub process_item {
         return;
     }
 
-    if ($only) {
-        my $fname = $files[0] =~ s/\..+$//r;
-        if ($fname !~ $type{$only}) {
-            say "$fname - it's not a $only; skipping";
-            return;
-        }
+    if ($only && !$p->look_down(@{$type{$only}})) {
+        say "It's not a $only; skipping";
+        return;
     }
 
     for my $filename (@files) {

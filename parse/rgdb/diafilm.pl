@@ -45,6 +45,9 @@ GetOptions(
     't|id-to=s' => \my $to,
     'n|num=i' => \my $num,
     'only=s' => \my $only,
+    'l|login=s' => \my $login,
+    'p|pass|password=s' => \my $password,
+    'incomplete!' => \my $get_incomplete,
 ) or die;
 
 $base_dir ||= '.';
@@ -59,6 +62,18 @@ elsif ($from && $num) {
     push @targets, ($from .. $from+$num-1);
 }
 
+
+my $ua = LWP::UserAgent->new(cookie_jar => {});
+my $is_logged;
+if ($login) {
+    die "Need --password"  if !$password;
+    my $res = $ua->post(
+        'http://arch.rgdb.ru/xmlui/password-login',
+        { login_email => $login, login_password => $password, submit => 'Войти' },
+    );
+    die "Login failed"  if $res->code != 302;
+    $is_logged = 1;
+}
 
 
 for my $target (@targets) {
@@ -81,6 +96,28 @@ sub process_item {
     }
 
     $p->parse($html);
+
+    my @files = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
+    if (!@files) {
+        say "No sequence found, skipping";
+        return;
+    }
+
+    if (!$get_incomplete) {
+        my $access = eval { $p->look_down(_tag => 'meta', name => "DC.relation")->attr('content') };
+        die "No access tag found"  if !$access;
+
+        if ($access eq "В здании РГДБ") {
+            say "Restricted access item; skipping";
+            return;
+        }
+
+        if (!$is_logged && $access eq "Защищено авторским правом") {
+            say "Limited access item, please provide login/password; skipping";
+            return;
+        }
+    }
+
 
     my $title = $p->find("h2")->as_text();
     my $author = eval { $p->look_down(_tag => 'span', class => "authors")->as_text() } || 'Nobody';
@@ -107,12 +144,6 @@ sub process_item {
 
     my $dir = encode locale_fs => "$base_dir/$name";
 
-    my @files = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
-    if (!@files) {
-        say "No sequence found, skipping";
-        return;
-    }
-
     if ($only && !$p->look_down(@{$type{$only}})) {
         say "It's not a $only; skipping";
         return;
@@ -128,11 +159,13 @@ sub process_item {
         mkdir $dir if !-d $dir;
 
         my $code = _download($url => $file);
-        last if $code == 404;
 
-        if ($code == 999) {
-            say "Incomplete book; removing...";
-            path($dir)->remove_tree;
+        if ($code == 404 || $code == 999) {
+            say "Incomplete book, skipping";
+            if (!$get_incomplete) {
+                say "(removing incomplete)";
+                path($dir)->remove_tree;
+            }
             last;
         }   
 
@@ -145,7 +178,6 @@ sub process_item {
 
 sub _download {
     my ($url, $path) = @_;
-    state $ua = LWP::UserAgent->new();
 
     my $resp = $ua->get($url);
     return $resp->code  if !$resp->is_success;

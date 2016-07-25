@@ -50,7 +50,7 @@ my @coins;
         $coin{name} = $name;
         $coin{link} = $coin_node->find_by_tag_name('a')->attr('href');
         $coin{weight} = $coin_node->find_by_attribute(class => "pi-text-center")->as_text();
-        $coin{sell} = $coin_node->find_by_attribute(class => "product_price js-price pi-text-center")->as_text() =~ s/[^\d\.]|\.$//gr;
+        $coin{sell} = eval { $coin_node->find_by_attribute(class => "product_price js-price pi-text-center")->as_text() =~ s/[^\d\.]|\.$//gr };
         $coin{buy} = eval { $coin_node->find_by_attribute(class => "product_price js-price-buyout pi-text-center")->as_text() =~ s/[^\d\.]|\.$//gr } || 0;
 
         next if !$coin{sell};

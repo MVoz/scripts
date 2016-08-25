@@ -123,8 +123,10 @@ sub process_item {
     my $author = eval { $p->look_down(_tag => 'span', class => "authors")->as_text() } || 'Nobody';
     my $year = eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() } || 'unk';
 
-    my $name = "$author - $title ($year)";
+    my $name = "$author - $title";
     $name =~ s#[\:\*\?\/\"\']#-#g;
+    chop $name while length(encode locale_fs => $name) > 240;
+    $name .= " ($year)";
     say "$code:  $name";
 
 =zip

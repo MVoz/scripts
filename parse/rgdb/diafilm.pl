@@ -124,7 +124,8 @@ sub process_item {
     my $year = eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() } || 'unk';
 
     my $name = "$author - $title";
-    $name =~ s#[\:\*\?\/\"\']#-#g;
+    $name =~ s#[\:\*\?\/\"\'\/]#-#g;
+    $year =~ s#[\:\*\?\/\"\'\/]#-#g;
     chop $name while length(encode locale_fs => $name) > 240;
     $name .= " ($year)";
     say "$code:  $name";

@@ -27,7 +27,9 @@ use Excel::Writer::XLSX;
 #    "tpl=prise&only_price_list=0&offset=0&available=1&search=&sort=0&category_id=0&metal_id=0&sample_id=0&country_id=0",
 #)->decoded_content();
 
-my $json = `curl -s "http://zoloto-md.ru/filter" -H "Cookie: PHPSESSID=1t509fgu25epfvuhgvqna26270; language=ru; currency=RUB; _ym_uid=14626267451040790330; _ym_isad=1; _ga=GA1.2.224986955.1462626745; _gat=1; _ym_visorc_19473382=w; _ym_visorc_32137485=w" -H "Origin: http://zoloto-md.ru" -H "Accept-Encoding: gzip, deflate" -H "Accept-Language: ru,en-US;q=0.8,en;q=0.6" -H "X-Compress: null" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Accept: application/json, text/javascript, */*; q=0.01" -H "Referer: http://zoloto-md.ru/bullion-coins/" -H "X-Requested-With: XMLHttpRequest" -H "Connection: keep-alive" --data "tpl=prise&only_price_list=0&offset=0&available=1&search=&sort=0&category_id=0&metal_id=0&sample_id=0&country_id=0" --compressed`;
+#my $json = `curl -s "http://zoloto-md.ru/filter" -H "Cookie: PHPSESSID=1t509fgu25epfvuhgvqna26270; language=ru; currency=RUB; _ym_uid=14626267451040790330; _ym_isad=1; _ga=GA1.2.224986955.1462626745; _gat=1; _ym_visorc_19473382=w; _ym_visorc_32137485=w" -H "Origin: http://zoloto-md.ru" -H "Accept-Encoding: gzip, deflate" -H "Accept-Language: ru,en-US;q=0.8,en;q=0.6" -H "X-Compress: null" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Accept: application/json, text/javascript, */*; q=0.01" -H "Referer: http://zoloto-md.ru/bullion-coins/" -H "X-Requested-With: XMLHttpRequest" -H "Connection: keep-alive" --data "tpl=prise&only_price_list=0&offset=0&available=1&search=&sort=0&category_id=0&metal_id=0&sample_id=0&country_id=0" --compressed`;
+
+my $json = `curl -s -k 'https://zoloto-md.ru/filter' -H 'Cookie: PHPSESSID=63sdalecqhqsae4gpt6on2k4b2; language=ru; currency=RUB; _gat=1; _ym_uid=1475747351909822692; _ym_isad=1; _ga=GA1.2.1488150691.1475747351; _ym_visorc_19473382=w; _ym_visorc_32137485=w' -H 'Origin: https://zoloto-md.ru' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: ru,en-US;q=0.8,en;q=0.6' -H 'X-Compress: null' -H 'User-Agent: Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/52.0.2743.116 Chrome/52.0.2743.116 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: application/json, text/javascript, */*; q=0.01' -H 'Referer: https://zoloto-md.ru/bullion-coins/' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' --data 'tpl=prise&only_price_list=0&offset=0&available=1&search=&sort=0&category_id=0&metal_id=0&sample_id=0&country_id=0' --compressed`;
 
 my $html = decode_json($json)->{data};
 
@@ -39,6 +41,7 @@ my @coins;
     $p->parse($html);
 
     for my $coin_node ($p->find_by_attribute(class => 'js-product')) {
+        say STDERR $coin_node->as_HTML('<>&', '  ');
         my ($img_node) = $coin_node->find_by_tag_name('img');
 
         next if !$img_node;
@@ -49,7 +52,7 @@ my @coins;
         my %coin;
         $coin{name} = $name;
         $coin{link} = $coin_node->find_by_tag_name('a')->attr('href');
-        $coin{weight} = $coin_node->find_by_attribute(class => "pi-text-center")->as_text();
+        $coin{weight} = $coin_node->find_by_attribute(class => "price-weight")->as_text();
         $coin{sell} = eval { $coin_node->find_by_attribute(class => "product_price js-price pi-text-center")->as_text() =~ s/[^\d\.]|\.$//gr };
         $coin{buy} = eval { $coin_node->find_by_attribute(class => "product_price js-price-buyout pi-text-center")->as_text() =~ s/[^\d\.]|\.$//gr } || 0;
 

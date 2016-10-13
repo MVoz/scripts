@@ -23,6 +23,10 @@ use LWP::UserAgent;
 use Path::Tiny;
 use URI;
 
+use YAML;
+
+my $name_db = 'title.yml';
+
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
@@ -63,6 +67,10 @@ elsif ($from && $num) {
 }
 
 
+my ($name_by_key) = eval { YAML::LoadFile("$Bin/$name_db") };
+my $keys_by_name;
+$keys_by_name->{$name_by_key->{$_}}->{$_} = $name_by_key->{$_}  for keys %{$name_by_key || {}};
+
 my $ua = LWP::UserAgent->new(cookie_jar => {});
 my $is_logged;
 if ($login) {
@@ -83,6 +91,7 @@ for my $target (@targets) {
     process_item($code);
 }
 
+YAML::DumpFile("$Bin/$name_db", $name_by_key);
 
 
 sub process_item {
@@ -130,6 +139,10 @@ sub process_item {
     $name .= " ($year)";
     say "$code:  $name";
 
+    $name_by_key->{$code} = $name;
+    $keys_by_name->{$name}->{$code} = $name;
+    my $need_subdir = keys %{$keys_by_name->{$name}} > 1;
+
 =zip
     if (my $zip_node = $p->look_down(_tag => 'a', href => qr/\.zip\?/)) {
         my $href = $zip_node->attr("href");
@@ -145,12 +158,12 @@ sub process_item {
     }
 =cut
 
-    my $dir = encode locale_fs => "$base_dir/$name";
-
     if ($only && !$p->look_down(@{$type{$only}})) {
         say "It's not a $only; skipping";
         return;
     }
+
+    my $dir = encode locale_fs => "$base_dir/$name" . ($need_subdir ? "/$code" : '');
 
     for my $filename (@files) {
         my $url = "$img_url/$code/$filename";
@@ -159,7 +172,7 @@ sub process_item {
         next if -f $file;
         say $url;
 
-        mkdir $dir if !-d $dir;
+        path($dir)->mkpath()  if !-d $dir;
 
         my $code = _download($url => $file);
 

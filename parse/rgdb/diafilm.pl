@@ -52,6 +52,7 @@ GetOptions(
     'l|login=s' => \my $login,
     'p|pass|password=s' => \my $password,
     'incomplete!' => \my $get_incomplete,
+    'names!' => \my $skip_download,
 ) or die;
 
 $base_dir ||= '.';
@@ -68,8 +69,11 @@ elsif ($from && $num) {
 
 
 my ($name_by_key) = eval { YAML::LoadFile("$Bin/$name_db") };
+
 my $keys_by_name;
-$keys_by_name->{$name_by_key->{$_}}->{$_} = $name_by_key->{$_}  for keys %{$name_by_key || {}};
+for my $type (keys %type) {
+    $keys_by_name->{$type}->{$name_by_key->{$type}->{$_}}->{$_} = $name_by_key->{$type}->{$_}  for keys %{$name_by_key->{$type} || {}};
+}
 
 my $ua = LWP::UserAgent->new(cookie_jar => {});
 my $is_logged;
@@ -139,9 +143,18 @@ sub process_item {
     $name .= " ($year)";
     say "$code:  $name";
 
-    $name_by_key->{$code} = $name;
-    $keys_by_name->{$name}->{$code} = $name;
-    my $need_subdir = keys %{$keys_by_name->{$name}} > 1;
+    my $type = detect_type($p);
+    croak "Undetected type for $code"  if !$type;
+    if ($only && $type ne $only) {
+        say "It's not a $only; skipping";
+        return;
+    }
+
+    $name_by_key->{$type}->{$code} = $name;
+    $keys_by_name->{$type}->{$name}->{$code} = $name;
+    my $need_subdir = keys %{$keys_by_name->{$type}->{$name}} > 1;
+
+    return if $skip_download;
 
 =zip
     if (my $zip_node = $p->look_down(_tag => 'a', href => qr/\.zip\?/)) {
@@ -157,11 +170,6 @@ sub process_item {
         return;
     }
 =cut
-
-    if ($only && !$p->look_down(@{$type{$only}})) {
-        say "It's not a $only; skipping";
-        return;
-    }
 
     my $dir = encode locale_fs => "$base_dir/$name" . ($need_subdir ? "/$code" : '');
 
@@ -205,6 +213,16 @@ sub _download {
     return;
 }
 
+
+sub detect_type {
+    my ($p) = @_;
+
+    for my $type_code (keys %type) {
+        return $type_code  if $p->look_down(@{$type{$type_code}});
+    }
+
+    return;
+}
 
 
 

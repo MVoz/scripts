@@ -6,6 +6,7 @@ use autodie;
 use Mouse;
 use Exporter "import";
 
+use Encode;
 use File::Slurp;
 use LWP::UserAgent;
 use Digest;
@@ -40,13 +41,14 @@ sub _cache_get {
     my $file = $self->_cache_filename($url);
     return if !-f $file;
     return if -M $file > $self->cache_timeout;
-    return scalar read_file $file, binmode => ':utf8';
+    
+    return decode utf8 => scalar read_file $file;
 }
 
 sub _cache_put {
     my ($self, $url, $data) = @_;
     mkdir $self->cache_dir  if !-d $self->cache_dir;
-    write_file $self->_cache_filename($url), {binmode => ':utf8'}, $data;
+    write_file $self->_cache_filename($url), encode utf8 => $data;
     return;
 }
 

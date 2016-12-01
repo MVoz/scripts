@@ -35,6 +35,7 @@ my %type = (
     film => [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
     mag  => [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
     book => [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
+    modern => [_tag => 'a', href => '/xmlui/handle/123456789/38408'],
 );
 
 

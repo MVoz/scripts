@@ -139,7 +139,7 @@ sub process_item {
     my $name = "$author - $title";
     $name =~ s#[\:\*\?\/\"\'\/]#-#g;
     $year =~ s#[\:\*\?\/\"\'\/]#-#g;
-    chop $name while length(encode locale_fs => $name) > 240;
+    chop $name while length(encode utf8 => $name) > 240;
     $name .= " ($year)";
     say "$code:  $name";
 

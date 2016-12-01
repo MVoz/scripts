@@ -41,7 +41,7 @@ my @coins;
     $p->parse($html);
 
     for my $coin_node ($p->find_by_attribute(class => 'js-product')) {
-        say STDERR $coin_node->as_HTML('<>&', '  ');
+#        say STDERR $coin_node->as_HTML('<>&', '  ');
         my ($img_node) = $coin_node->find_by_tag_name('img');
 
         next if !$img_node;

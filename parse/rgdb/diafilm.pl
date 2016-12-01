@@ -142,7 +142,7 @@ sub process_item {
     $year =~ s#[\:\*\?\/\"\'\/]#-#g;
     chop $name while length(encode utf8 => $name) > 240;
     $name .= " ($year)";
-    say "$code:  $name";
+    say decode console_out => encode console_out => "$code:  $name";
 
     my $type = detect_type($p);
     croak "Undetected type for $code"  if !$type;
@@ -204,7 +204,11 @@ sub process_item {
 sub _download {
     my ($url, $path) = @_;
 
-    my $resp = $ua->get($url);
+    my $resp;
+    for (1 .. 3) {
+        $resp = $ua->get($url);
+        last if $resp->is_success;
+    }
     return $resp->code  if !$resp->is_success;
 
     my $content = $resp->decoded_content;

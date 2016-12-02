@@ -25,6 +25,7 @@ use URI;
 
 use YAML;
 
+
 my $name_db = 'title.yml';
 
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
@@ -192,6 +193,8 @@ sub _download {
 
 package Book;
 
+use Carp;
+
 sub new {
     my $class = shift;
     my ($html, %O) = @_;
@@ -223,11 +226,31 @@ sub get_metadata {
     return $self->{metadata}  if $self->{metadata};
 
     my $p = $self->{p};
-    $self->{metadata} ||= {
-        title => $p->find("h2")->as_text(),
-        author => eval { $p->look_down(_tag => 'span', class => "authors")->as_text() },
-        year => eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() },
+    my $url = $p->look_down(_tag => 'meta', name => "DC.identifier", scheme => "DCTERMS.URI")->attr('content');
+    my ($id) = $url =~ /(\d+)$/;
+
+    state $in_meta = {
+        url =>      [name => "DC.identifier", scheme => "DCTERMS.URI"],
+        title =>    [name => "citation_title"],
+        author =>   [name => "citation_authors"],
+        year =>     [name => "DCTERMS.issued"],
+        illustrator => [name => "DC.contributor"],
+        publisher =>[name => "DC.publisher"],
+        rubric =>   [name => "DC.type"],
     };
+
+    $self->{metadata} = {
+        type => $self->{type},
+        num_pages => scalar @{$self->{pages}},
+        target => eval { $p->look_down(_tag => 'span', class => "target")->as_text() },
+        map {$_ => eval{$p->look_down(_tag => 'meta', @{$in_meta->{$_}})->attr('content')}} keys %$in_meta,
+    };
+
+    my ($id) = $self->{metadata}->{url} =~ /(\d+)$/;
+    croak "ID not found"  if !$id;
+    $self->{metadata}->{id} = $id;
+
+    Storage::put($self->{metadata});
 
     return $self->{metadata};
 }
@@ -264,6 +287,81 @@ sub is_valid_type {
     my ($key) = @_;
     return exists $self->type_query->{$key};
 }
+
+1;
+
+
+package Storage;
+
+use DBI;
+use DBD::SQLite;
+
+my $dbh;
+
+sub table { 'books' };
+
+sub _init {
+    return if $dbh;
+
+    state $dbname = "books.sqlite";
+
+    $dbh = DBI->connect("dbi:SQLite:dbname=$dbname","","");
+
+#    $dbh->do("create table books (id int, name varchar(100))");
+
+    my $table_name = table();
+    my ($table) = $dbh->tables(undef, '%', $table_name);
+    return if $table;
+
+    $dbh->do("
+        CREATE TABLE $table_name (
+            id int PRIMARY KEY,
+            type text,
+            title text COLLATE perl,
+            author text COLLATE perl,
+            year text,
+            publisher text COLLATE perl,
+            illustrator text COLLATE perl,
+            rubric text COLLATE perl,
+            target text COLLATE perl,
+            num_pages int
+        )
+    ");
+
+    return;
+}
+
+
+sub put {
+    my ($data) = @_;
+    _init();
+
+    state $fields = [qw/
+        id
+        type
+        title
+        author
+        year
+        publisher
+        illustrator
+        rubric
+        target
+        num_pages
+    /];
+
+    my $table_name = table();
+
+    my $sql = "INSERT OR REPLACE INTO $table_name ("
+        . join(',' => @$fields)
+        . ") values ("
+        . join(',' => map {"?"} @$fields)
+        . ")";
+    my @binds = map {$data->{$_}} @$fields;
+    $dbh->do($sql, {RaiseError=>1}, @binds) or die $dbh->errstr;
+
+    return;
+}
+
 
 1;
 

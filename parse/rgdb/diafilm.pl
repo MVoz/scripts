@@ -238,16 +238,23 @@ sub get_metadata {
         publisher =>[name => "DC.publisher"],
         rubric =>   [name => "DC.type"],
     };
+    state $in_span = {
+        target =>   [class => "target"],
+        year =>     [class => "pubdate"],
+    };
 
     $self->{metadata} = {
         type => $self->{type},
         num_pages => scalar @{$self->{pages}},
-        target => eval { $p->look_down(_tag => 'span', class => "target")->as_text() },
-        map {$_ => eval{$p->look_down(_tag => 'meta', @{$in_meta->{$_}})->attr('content')}} keys %$in_meta,
+        (map {$_ => (eval{$p->look_down(_tag => 'meta', @{$in_meta->{$_}})->attr('content')} || undef)} keys %$in_meta),
+        (map {$_ => (eval{$p->look_down(_tag => 'span', @{$in_span->{$_}})->as_text()} || undef)} keys %$in_span),
     };
 
     my ($id) = $self->{metadata}->{url} =~ /(\d+)$/;
-    croak "ID not found"  if !$id;
+    if (!$id) {
+        use YAML; warn Dump($self->{metadata});
+        croak "ID not found"  if !$id;
+    }
     $self->{metadata}->{id} = $id;
 
     Storage::put($self->{metadata});

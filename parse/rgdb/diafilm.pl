@@ -30,14 +30,6 @@ my $name_db = 'title.yml';
 my $base_url = "http://arch.rgdb.ru/xmlui/handle/123456789";
 my $img_url  = "http://arch.rgdb.ru/xmlui/bitstream/handle/123456789";
 
-my %type = (
-    #"<a href="/xmlui/handle/123456789/27090">Диафильмы</a>",
-    film => [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
-    mag  => [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
-    book => [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
-    modern => [_tag => 'a', href => '/xmlui/handle/123456789/38408'],
-);
-
 
 Encode::Locale::decode_argv();
 binmode STDOUT, 'encoding(console_out)';
@@ -57,7 +49,8 @@ GetOptions(
 ) or die;
 
 $base_dir ||= '.';
-die "Invalid --only"  if $only && !$type{$only};
+
+die "Invalid --only"  if $only && !Book->is_valid_type($only);
 
 
 push @targets, @ARGV;
@@ -72,7 +65,7 @@ elsif ($from && $num) {
 my ($name_by_key) = eval { YAML::LoadFile("$Bin/$name_db") };
 
 my $keys_by_name;
-for my $type (keys %type) {
+for my $type (keys %{Book->type_query}) {
     $keys_by_name->{$type}->{$name_by_key->{$type}->{$_}}->{$_} = $name_by_key->{$type}->{$_}  for keys %{$name_by_key->{$type} || {}};
 }
 
@@ -102,40 +95,31 @@ YAML::DumpFile("$Bin/$name_db", $name_by_key);
 sub process_item {
     my ($code) = @_;
 
-    my $p = HTML::TreeBuilder->new();
     my $html = eval { cached_get("$base_url/$code") };
     if (!$html) {
         say "Failed to get $base_url/$code, skipping";
         return;
     }
 
-    $p->parse($html);
-
-    my @files = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
-    if (!@files) {
-        say "No sequence found, skipping";
-        return;
-    }
-
-    if (!$get_incomplete) {
-        my $access = eval { $p->look_down(_tag => 'meta', name => "DC.relation")->attr('content') };
-        die "No access tag found"  if !$access;
-
-        if ($access eq "В здании РГДБ") {
-            say "Restricted access item; skipping";
+    my %parse_opt = (
+        get_incomplete => $get_incomplete,
+        is_logged => $is_logged,
+    );
+    my $book = eval { Book->new($html, %parse_opt) };
+    if (!$book) {
+        my $err = $@;
+        if (ref $err eq 'SCALAR') {
+            say "$$err, skipping";
             return;
         }
-
-        if (!$is_logged && $access eq "Защищено авторским правом") {
-            say "Limited access item, please provide login/password; skipping";
-            return;
-        }
+        die $@;
     }
 
+    my $metadata = $book->get_metadata();
 
-    my $title = $p->find("h2")->as_text();
-    my $author = eval { $p->look_down(_tag => 'span', class => "authors")->as_text() } || 'Nobody';
-    my $year = eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() } || 'unk';
+    my $title = $metadata->{title};
+    my $author = $metadata->{author} || 'Nobody';
+    my $year = $metadata->{year} || 'unk';
 
     my $name = "$author - $title";
     $name =~ s#[\:\*\?\/\"\'\/]#-#g;
@@ -144,7 +128,7 @@ sub process_item {
     $name .= " ($year)";
     say decode console_out => encode console_out => "$code:  $name";
 
-    my $type = detect_type($p);
+    my $type = $book->{type};
     croak "Undetected type for $code"  if !$type;
     if ($only && $type ne $only) {
         say "It's not a $only; skipping";
@@ -157,24 +141,9 @@ sub process_item {
 
     return if $skip_download;
 
-=zip
-    if (my $zip_node = $p->look_down(_tag => 'a', href => qr/\.zip\?/)) {
-        my $href = $zip_node->attr("href");
-        $href =~ s/\?.*$//;
-        my $file = "$base_dir/$name.zip";
-        return if -f $file;
-
-        my $zip_url = URI->new_abs($href, $base_url)->as_string;
-        say $zip_url;        
-        my $code = _download($zip_url => $file);
-        die "HTTP code $code"  if $code;
-        return;
-    }
-=cut
-
     my $dir = encode locale_fs => "$base_dir/$name" . ($need_subdir ? "/$code" : '');
 
-    for my $filename (@files) {
+    for my $filename (@{$book->{pages}}) {
         my $url = "$img_url/$code/$filename";
         my $file = "$dir/" . encode locale_fs => $filename;
 
@@ -219,15 +188,82 @@ sub _download {
 }
 
 
-sub detect_type {
-    my ($p) = @_;
 
-    for my $type_code (keys %type) {
-        return $type_code  if $p->look_down(@{$type{$type_code}});
+
+package Book;
+
+sub new {
+    my $class = shift;
+    my ($html, %O) = @_;
+    my $self = bless {}, $class;
+
+    my $p = $self->{p} = HTML::TreeBuilder->new();
+    $p->parse($html);
+
+    my @pages = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
+    die \"No sequence found, skipping"  if !@pages;
+    $self->{pages} = \@pages;
+
+    if (!$O{get_incomplete}) {
+        my $access = $self->{access} = eval { $p->look_down(_tag => 'meta', name => "DC.relation")->attr('content') };
+        die \"No access tag found"  if !$access;
+        die \"Restricted access item"  if $access eq "В здании РГДБ";
+        die \"Limited access item, please provide login/password"  if !$O{is_logged} && $access eq "Защищено авторским правом"
+    }
+
+    $self->{type} = $self->detect_type();
+
+    return $self;
+}
+
+
+sub get_metadata {
+    my $self = shift;
+
+    return $self->{metadata}  if $self->{metadata};
+
+    my $p = $self->{p};
+    $self->{metadata} ||= {
+        title => $p->find("h2")->as_text(),
+        author => eval { $p->look_down(_tag => 'span', class => "authors")->as_text() },
+        year => eval {$p->look_down(_tag => 'span', class => "pubdate")->as_text() },
+    };
+
+    return $self->{metadata};
+}
+
+
+sub detect_type {
+    my $self = shift;
+
+    my $p = $self->{p};
+    my $type = $self->type_query();
+    for my $type_code (keys %$type) {
+        return $type_code  if $p->look_down(@{$type->{$type_code}});
     }
 
     return;
 }
 
 
+sub type_query {
+    state $type = {
+        #"<a href="/xmlui/handle/123456789/27090">Диафильмы</a>",
+        film => [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
+        mag  => [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
+        book => [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
+        modern => [_tag => 'a', href => '/xmlui/handle/123456789/38408'],
+    };
+
+    return $type;
+}
+
+
+sub is_valid_type {
+    my $self = shift;
+    my ($key) = @_;
+    return exists $self->type_query->{$key};
+}
+
+1;
 

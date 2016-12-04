@@ -96,7 +96,7 @@ YAML::DumpFile("$Bin/$name_db", $name_by_key);
 sub process_item {
     my ($code) = @_;
 
-    my $html = eval { cached_get("$base_url/$code") };
+    my $html = eval { cached_get("$base_url/$code", cache_timeout => 10) };
     if (!$html) {
         say "Failed to get $base_url/$code, skipping";
         return;
@@ -233,21 +233,21 @@ sub get_metadata {
         url =>      [name => "DC.identifier", scheme => "DCTERMS.URI"],
         title =>    [name => "citation_title"],
         author =>   [name => "citation_authors"],
-        year =>     [name => "DCTERMS.issued"],
-        illustrator => [name => "DC.contributor"],
-        publisher =>[name => "DC.publisher"],
-        rubric =>   [name => "DC.type"],
     };
     state $in_span = {
-        target =>   [class => "target"],
         year =>     [class => "pubdate"],
+        publisher => [class => "publishers"],
+        illustrator => [class => "illustrators"],
+        translator => [class => "translators"],
+        target =>   [class => "target"],
+        theme =>   [class => "theme"],
     };
 
     $self->{metadata} = {
         type => $self->{type},
         num_pages => scalar @{$self->{pages}},
         (map {$_ => (eval{$p->look_down(_tag => 'meta', @{$in_meta->{$_}})->attr('content')} || undef)} keys %$in_meta),
-        (map {$_ => (eval{$p->look_down(_tag => 'span', @{$in_span->{$_}})->as_text()} || undef)} keys %$in_span),
+        (map {$_ => $self->_parse_span_element($in_span->{$_})} keys %$in_span),
     };
 
     my ($id) = $self->{metadata}->{url} =~ /(\d+)$/;
@@ -260,6 +260,14 @@ sub get_metadata {
     Storage::put($self->{metadata});
 
     return $self->{metadata};
+}
+
+sub _parse_span_element {
+    my $self = shift;
+    my ($cond) = @_;
+
+    my $value = join '; ' => map {$_->as_text()} $self->{p}->look_down(_tag => 'span', @$cond);
+    return $value || undef;
 }
 
 
@@ -324,13 +332,14 @@ sub _init {
         CREATE TABLE $table_name (
             id int PRIMARY KEY,
             type text,
-            title text COLLATE perl,
-            author text COLLATE perl,
+            title text,
+            author text,
             year text,
-            publisher text COLLATE perl,
-            illustrator text COLLATE perl,
-            rubric text COLLATE perl,
-            target text COLLATE perl,
+            publisher text,
+            illustrator text,
+            translator text,
+            theme text,
+            target text,
             num_pages int
         )
     ");
@@ -350,9 +359,10 @@ sub put {
         author
         year
         publisher
+        translator
         illustrator
-        rubric
         target
+        theme
         num_pages
     /];
 

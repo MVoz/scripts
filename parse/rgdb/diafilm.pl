@@ -303,6 +303,10 @@ package Storage;
 use DBI;
 use DBD::SQLite;
 
+use Encode;
+use YAML;
+use Text::Diff;
+
 my $dbh;
 
 sub table { 'books' };
@@ -357,6 +361,20 @@ sub put {
     /];
 
     my $table_name = table();
+
+    my $select_sql = "SELECT "
+        . join(',' => @$fields)
+        . " FROM books WHERE id=?";
+    my $old = $dbh->selectrow_hashref($select_sql, {}, $data->{id});
+    if ($old) {
+        my %new = map {($_ => $data->{$_} && encode utf8 => $data->{$_})} @$fields;
+        my $old_str = YAML::Dump($old);
+        my $new_str = YAML::Dump(\%new);
+        if ($new_str ne $old_str) {
+            say 'Data changed:';
+            say diff \$old_str, \$new_str, {CONTEXT => 0};
+        }
+    }
 
     my $sql = "INSERT OR REPLACE INTO $table_name ("
         . join(',' => @$fields)

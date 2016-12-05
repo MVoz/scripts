@@ -22,6 +22,7 @@ use HTML::TreeBuilder;
 use LWP::UserAgent;
 use Path::Tiny;
 use URI;
+use PDF::API2;
 
 use YAML;
 
@@ -47,6 +48,7 @@ GetOptions(
     'p|pass|password=s' => \my $password,
     'incomplete!' => \my $get_incomplete,
     'names!' => \my $skip_download,
+    'pdf!' => \my $save_pdf,
 ) or die;
 
 $base_dir ||= '.';
@@ -144,27 +146,53 @@ sub process_item {
 
     my $dir = encode locale_fs => "$base_dir/$name" . ($need_subdir ? "/$code" : '');
 
+    my $pdf;
+    if ($save_pdf) {
+        my $pdf_name = encode locale_fs => "$base_dir/$name" . ($need_subdir ? ".$code" : '') . '.pdf';
+        $pdf = PDF::API2->new(-file => $pdf_name);
+        $pdf->preferences(
+            -thumbs => 0,
+            -fitwindow => 1,
+        );
+        $pdf->info(
+            Author => $metadata->{author},
+            Title => $metadata->{title},
+            Keywords => $metadata->{theme},
+        );
+    }
+
     for my $filename (@{$book->{pages}}) {
         my $url = "$img_url/$code/$filename";
         my $file = "$dir/" . encode locale_fs => $filename;
 
-        next if -f $file;
-        say $url;
+        if (!-f $file) {
+            say $url;
+            path($dir)->mkpath()  if !-d $dir;
+            my $code = _download($url => $file);
 
-        path($dir)->mkpath()  if !-d $dir;
+            if ($code == 404 || $code == 999) {
+                say "Incomplete book, skipping";
+                if (!$get_incomplete) {
+                    say "(removing incomplete)";
+                    path($dir)->remove_tree;
+                }
+                last;
+            }   
 
-        my $code = _download($url => $file);
+            die "HTTP code $code"  if $code;
+        }
 
-        if ($code == 404 || $code == 999) {
-            say "Incomplete book, skipping";
-            if (!$get_incomplete) {
-                say "(removing incomplete)";
-                path($dir)->remove_tree;
-            }
-            last;
-        }   
+        if ($save_pdf) {
+            my $image = $pdf->image_jpeg($file);
+            my $page = $pdf->page();
+            $page->mediabox($image->width, $image->height);
+            my $gfx = $page->gfx();
+            $gfx->image($image);
+        }
+    }
 
-        die "HTTP code $code"  if $code;
+    if ($save_pdf) {
+        $pdf->save();
     }
 
     return;
@@ -311,6 +339,10 @@ package Storage;
 use DBI;
 use DBD::SQLite;
 
+use Encode;
+use YAML;
+use Text::Diff;
+
 my $dbh;
 
 sub table { 'books' };
@@ -367,6 +399,20 @@ sub put {
     /];
 
     my $table_name = table();
+
+    my $select_sql = "SELECT "
+        . join(',' => @$fields)
+        . " FROM books WHERE id=?";
+    my $old = $dbh->selectrow_hashref($select_sql, {}, $data->{id});
+    if ($old) {
+        my %new = map {($_ => $data->{$_} && encode utf8 => $data->{$_})} @$fields;
+        my $old_str = YAML::Dump($old);
+        my $new_str = YAML::Dump(\%new);
+        if ($new_str ne $old_str) {
+            say 'Data changed:';
+            say diff \$old_str, \$new_str, {CONTEXT => 0};
+        }
+    }
 
     my $sql = "INSERT OR REPLACE INTO $table_name ("
         . join(',' => @$fields)

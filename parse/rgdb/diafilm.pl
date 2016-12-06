@@ -148,12 +148,7 @@ sub process_item {
 
     my $pdf;
     if ($save_pdf) {
-        my $pdf_name = encode locale_fs => "$base_dir/$name" . ($need_subdir ? ".$code" : '') . '.pdf';
-        $pdf = PDF::API2->new(-file => $pdf_name);
-        $pdf->preferences(
-            -thumbs => 0,
-            -fitwindow => 1,
-        );
+        $pdf = PDF::API2->new();
         $pdf->info(
             Author => $metadata->{author},
             Title => $metadata->{title},
@@ -192,7 +187,8 @@ sub process_item {
     }
 
     if ($save_pdf) {
-        $pdf->save();
+        my $pdf_name = encode locale_fs => "$base_dir/$name" . ($need_subdir ? ".$code" : '') . '.pdf';
+        $pdf->saveas($pdf_name);
     }
 
     return;

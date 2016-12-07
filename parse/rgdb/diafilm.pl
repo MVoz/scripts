@@ -294,9 +294,11 @@ sub _extract_year {
     my ($year_str) = @_;
 
     my ($year) = $year_str =~ /\b(\d{3,4})\b/xms;
-    $year += 1000  if $year < 1000;
+    return undef if !$year;
 
-    return undef  if $year !~ /^[12]/;
+    $year += 1000  if $year > 500 && $year < 1000;
+
+    return undef  if $year !~ /^[12]\d{3}/;
     return $year;
 }
 
@@ -420,7 +422,8 @@ sub put {
         my $new_str = YAML::Dump(\%new);
         if ($new_str ne $old_str) {
             say 'Data changed:';
-            say diff \$old_str, \$new_str, {CONTEXT => 0};
+            my $diff = decode utf8 => diff \$old_str, \$new_str, {CONTEXT => 0};
+            say decode console_out => encode console_out => $diff;
         }
     }
 

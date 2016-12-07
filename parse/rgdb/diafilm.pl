@@ -267,23 +267,37 @@ sub get_metadata {
         theme =>   [class => "theme"],
     };
 
-    $self->{metadata} = {
+    my $metadata = {
         type => $self->{type},
         num_pages => scalar @{$self->{pages}},
         (map {$_ => (eval{$p->look_down(_tag => 'meta', @{$in_meta->{$_}})->attr('content')} || undef)} keys %$in_meta),
         (map {$_ => $self->_parse_span_element($in_span->{$_})} keys %$in_span),
     };
 
-    my ($id) = $self->{metadata}->{url} =~ /(\d+)$/;
+    my ($id) = $metadata->{url} =~ /(\d+)$/;
     if (!$id) {
-        use YAML; warn Dump($self->{metadata});
+        use YAML; warn Dump($metadata);
         croak "ID not found"  if !$id;
     }
-    $self->{metadata}->{id} = $id;
+    $metadata->{id} = $id;
+    $metadata->{year} = $self->_extract_year($metadata->{year});
 
-    Storage::put($self->{metadata});
+    Storage::put($metadata);
+    $self->{metadata} = $metadata;
 
-    return $self->{metadata};
+    return $metadata;
+}
+
+
+sub _extract_year {
+    my $self = shift;
+    my ($year_str) = @_;
+
+    my ($year) = $year_str =~ /\b(\d{3,4})\b/xms;
+    $year += 1000  if $year < 1000;
+
+    return undef  if $year !~ /^[12]/;
+    return $year;
 }
 
 sub _parse_span_element {

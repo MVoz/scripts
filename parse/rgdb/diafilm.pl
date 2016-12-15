@@ -56,12 +56,20 @@ $base_dir ||= '.';
 die "Invalid --only"  if $only && !Book->is_valid_type($only);
 
 
-push @targets, @ARGV;
 if ($from && $to) {
     push @targets, ($from .. $to);
 }
 elsif ($from && $num) {
     push @targets, ($from .. $from+$num-1);
+}
+
+for my $arg (map {split /[,;|]/} @ARGV) {
+    if ($arg =~ /(\d+)\.\.(\d+)/) {
+        push @targets, ($1 .. $2);
+    }
+    else {
+        push @targets, $arg;
+    }
 }
 
 

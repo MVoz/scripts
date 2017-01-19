@@ -37,6 +37,9 @@ Encode::Locale::decode_argv();
 binmode STDOUT, 'encoding(console_out)';
 binmode STDERR, 'encoding(console_out)';
 
+my $show_diff = 1;
+my $cache_timeout = 1;
+
 GetOptions(
     'd|base-dir=s' => \my $base_dir,
     'id=s' => \my @targets,
@@ -49,6 +52,8 @@ GetOptions(
     'incomplete!' => \my $get_incomplete,
     'names!' => \my $skip_download,
     'pdf!' => \my $save_pdf,
+    'diff!' => \$show_diff,
+    'cache-timeout=i' => \$cache_timeout,
 ) or die;
 
 $base_dir ||= '.';
@@ -106,7 +111,7 @@ YAML::DumpFile("$Bin/$name_db", $name_by_key);
 sub process_item {
     my ($code) = @_;
 
-    my $html = eval { cached_get("$base_url/$code", cache_timeout => 10) };
+    my $html = eval { cached_get("$base_url/$code", cache_timeout => $cache_timeout) };
     if (!$html) {
         say "Failed to get $base_url/$code, skipping";
         return;
@@ -424,9 +429,9 @@ sub put {
         . join(',' => @$fields)
         . " FROM books WHERE id=?";
     my $old = $dbh->selectrow_hashref($select_sql, {}, $data->{id});
-    if ($old) {
+    if ($show_diff) {
         my %new = map {($_ => $data->{$_} && encode utf8 => $data->{$_})} @$fields;
-        my $old_str = YAML::Dump($old);
+        my $old_str = $old ? YAML::Dump($old) : '';
         my $new_str = YAML::Dump(\%new);
         if ($new_str ne $old_str) {
             say 'Data changed:';

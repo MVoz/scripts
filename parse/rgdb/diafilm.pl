@@ -241,7 +241,7 @@ sub new {
     $p->parse($html);
 
     my @pages = map {$_->attr('href') =~ m#/(\w+\.\w+)\?sequence#} $p->look_down(_tag => 'a', class => 'image-link');
-    die \"No sequence found, skipping"  if !@pages;
+    die \"No sequence found"  if !@pages;
     $self->{pages} = \@pages;
 
     if (!$O{get_incomplete}) {
@@ -340,10 +340,11 @@ sub detect_type {
 sub type_query {
     state $type = {
         #"<a href="/xmlui/handle/123456789/27090">Диафильмы</a>",
-        film => [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
-        mag  => [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
-        book => [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
-        modern => [_tag => 'a', href => '/xmlui/handle/123456789/38408'],
+        film =>         [_tag => 'a', href => '/xmlui/handle/123456789/27090'],
+        mag  =>         [_tag => 'a', href => '/xmlui/handle/123456789/20027'],
+        newspaper =>    [_tag => 'a', href => '/xmlui/handle/123456789/39289'],
+        book =>         [_tag => 'a', href => '/xmlui/handle/123456789/27123'],
+        modern =>       [_tag => 'a', href => '/xmlui/handle/123456789/38408'],
     };
 
     return $type;

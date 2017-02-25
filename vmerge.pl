@@ -3,7 +3,7 @@
 use 5.018;
 use Path::Tiny;
 
-my @exts = qw/avi mp4 mkv/;
+my @exts = qw/avi mp4 mkv mp3/;
 
 for my $ext (@exts) {
     my @files = glob "*.$ext";

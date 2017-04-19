@@ -11,10 +11,12 @@ for my $ext (@exts) {
 
     my $list = "$ext.list";
     my $lf = path($list);
-    $lf->spew(map {"file '$_'\n"} @files);
+    $lf->spew(map {"file '" . s/'/'\\''/gr ."'\n"} @files);
 
-    say "ffmpeg -f concat -safe 0 -i $lf -c copy merged.$ext";
-    `ffmpeg -f concat -safe 0 -i $lf -c copy merged.$ext`;
+    my $cmd = "ffmpeg -f concat -safe 0 -i $lf -c copy merged.$ext";
+    `$cmd`;
+    say $cmd;
 }
+
 
 

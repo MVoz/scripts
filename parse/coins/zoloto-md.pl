@@ -77,6 +77,9 @@ my $format_spread = $workbook->add_format(num_format => '0.00%');
 
 my $row = 0;
 for my $coin ( sort {$a->{price} <=> $b->{price}} @coins ) {
+    # skip accessories
+    next if !(0 + $coin->{weight});
+
     $row ++;
     my $col = 0;
 
@@ -84,7 +87,8 @@ for my $coin ( sort {$a->{price} <=> $b->{price}} @coins ) {
     $sheet->write_number( $row, $col++, $coin->{weight}, $format_weight );
     $sheet->write_number( $row, $col++, $coin->{buy}, $format_price );
     $sheet->write_number( $row, $col++, $coin->{sell}, $format_price );
-    $sheet->write_number( $row, $col++, $coin->{sell}/$coin->{weight}*31.10, $format_price );
+    my $price = $coin->{sell} / $coin->{weight} * 31.10;
+    $sheet->write_number( $row, $col++, $price, $format_price );
     $sheet->write_number( $row, $col++, ($coin->{sell} - $coin->{buy})/$coin->{sell}, $format_spread );
     $sheet->write( $row, $col++, $coin->{link} );
 }

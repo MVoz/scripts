@@ -8,13 +8,23 @@ use JSON;
 use File::Slurp;
 use YAML;
 
+use LWP::Simple;
+
 use Encode::Locale;
 
 binmode STDOUT, ':encoding(console_out)';
 
 
-my $file = $ARGV[0];
-my $data = decode_json read_file $file;
+my $json;
+if (@ARGV) {
+    my $file = $ARGV[0];
+    $json = read_file $file;
+}
+else {
+    $json = get 'https://api.tinkoff.ru/trading/bonds/list?sortType=ByYieldToClient&orderType=Desc';
+}
+
+my $data = decode_json $json;
 
 my $bonds_full = $data->{payload}->{values};
 my @bonds;

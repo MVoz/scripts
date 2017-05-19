@@ -49,7 +49,6 @@ for my $bond (@$bonds_full) {
         date => $bond->{matDate},
         yield => $bond->{yieldToMaturity},
         irr => xirr(_get_bond_cashflow($bond, $bond->{matDate}), precision => 0.0001),
-        type => 'maturity',
     };
 
     push @bonds, +{ %$item, %$yield };
@@ -61,7 +60,7 @@ for my $bond (@$bonds_full) {
         date => $bond->{buyBackDate},
         yield => $bond->{yieldToBuyBack},
         irr => xirr(_get_bond_cashflow($bond, $bond->{buyBackDate}), precision => 0.0001),
-        type => 'buyback',
+        name => "$bond->{symbol}->{description} /bb",
     };
 
     push @bonds, +{ %$item, %$yield };
@@ -76,7 +75,7 @@ say _format($_) for sort {$b->{$sort_key} <=> $a->{$sort_key}} @bonds;
 sub _format {
     my $bond = shift;
 
-    return sprintf "%20s    %-24s  %7.2f  %s  %s  %5.2f  %5.2f  %s" =>
+    return sprintf "%20s    %-32s  %7.2f  %s  %s  %5.2f  %5.2f" =>
         $bond->{ticker},
         $bond->{name},
         $bond->{price},
@@ -84,7 +83,6 @@ sub _format {
         $bond->{date} =~ s/T.*//r,
         $bond->{yield},
         $bond->{irr} * 100,
-        $bond->{type},
         ;
 }
 

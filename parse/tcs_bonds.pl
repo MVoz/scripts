@@ -7,6 +7,7 @@ use 5.018;
 use JSON;
 use File::Slurp;
 use YAML;
+use Getopt::Long;
 
 use LWP::Simple;
 
@@ -16,6 +17,10 @@ use Finance::Math::IRR;
 use Encode::Locale;
 
 binmode STDOUT, ':encoding(console_out)';
+
+GetOptions(
+    "buyback!" => \my $need_buyback,
+);
 
 
 my $json;
@@ -48,6 +53,8 @@ for my $bond (@$bonds_full) {
     };
 
     push @bonds, +{ %$item, %$yield };
+
+    next if !$need_buyback;
     next if $bond->{matDate} eq $bond->{buyBackDate};
 
     my $yield = {

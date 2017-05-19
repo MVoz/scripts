@@ -10,6 +10,9 @@ use YAML;
 
 use LWP::Simple;
 
+use Date::Calc;
+use Finance::Math::IRR;
+
 use Encode::Locale;
 
 binmode STDOUT, ':encoding(console_out)';
@@ -29,6 +32,7 @@ my $data = decode_json $json;
 my $bonds_full = $data->{payload}->{values};
 my @bonds;
 for my $bond (@$bonds_full) {
+    # say STDERR Dump($bond); die;
     my $item = {
         ticker => $bond->{symbol}->{ticker},
         name => $bond->{symbol}->{description},
@@ -39,6 +43,7 @@ for my $bond (@$bonds_full) {
     my $yield = {
         date => $bond->{matDate},
         yield => $bond->{yieldToMaturity},
+        irr => xirr(_get_bond_cashflow($bond, $bond->{matDate}), precision => 0.0001),
         type => 'maturity',
     };
 
@@ -48,25 +53,63 @@ for my $bond (@$bonds_full) {
     my $yield = {
         date => $bond->{buyBackDate},
         yield => $bond->{yieldToBuyBack},
+        irr => xirr(_get_bond_cashflow($bond, $bond->{buyBackDate}), precision => 0.0001),
         type => 'buyback',
     };
 
     push @bonds, +{ %$item, %$yield };
 }
 
-say _format($_) for sort {$b->{yield} <=> $a->{yield}} @bonds;
+my $sort_key = 'irr';
+#my $sort_key = 'yield';
+
+say _format($_) for sort {$b->{$sort_key} <=> $a->{$sort_key}} @bonds;
 
 
 sub _format {
     my $bond = shift;
 
-    return sprintf "%20s    %-24s  %7.2f  %s  %s  %5.2f  %s" =>
+    return sprintf "%20s    %-24s  %7.2f  %s  %s  %5.2f  %5.2f  %s" =>
         $bond->{ticker},
         $bond->{name},
         $bond->{price},
         $bond->{currency},
         $bond->{date} =~ s/T.*//r,
         $bond->{yield},
+        $bond->{irr} * 100,
         $bond->{type},
         ;
 }
+
+
+sub _get_bond_cashflow {
+    my ($bond, $date, %opt) = @_;
+
+    my $today = _datestr(Date::Calc::Today());
+    my @end_date = split /-/ => ($date =~ s/T.*//r);
+
+    my $tax = 0.13;
+    my $comission = 0.003;
+
+    my $nominal = $bond->{faceValue};
+    my $coupon = $bond->{couponValue} * (1 - $tax);
+    my $period = $bond->{couponPeriodDays};
+    
+    my @flow = (_datestr(@end_date) => -($nominal + $coupon));
+
+    my @date = Date::Calc::Add_Delta_Days(@end_date, -$period);
+    while (_datestr(@date) ge $today) {
+        push @flow, (_datestr(@date) => -$coupon);
+        @date = Date::Calc::Add_Delta_Days(@date, -$period);
+    }
+
+    push @flow, ($today => $bond->{price}->{value} * (1 + $comission));
+
+#    say "$bond->{symbol}->{isin}:  " . to_json \@flow;
+#    use YAML; say Dump $bond;
+    
+    return @flow;
+}
+
+sub _datestr { sprintf "%4d-%02d-%02d" => @_ }
+

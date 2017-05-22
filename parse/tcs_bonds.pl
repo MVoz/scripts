@@ -38,32 +38,21 @@ my $bonds_full = $data->{payload}->{values};
 my @bonds;
 for my $bond (@$bonds_full) {
     # say STDERR Dump($bond); die;
+
+    my $is_buyback = $bond->{buyBackDate} && $bond->{buyBackDate} ne $bond->{matDate};
+    my $date = $is_buyback ? $bond->{buyBackDate} : $bond->{matDate};
+
     my $item = {
-        ticker => $bond->{symbol}->{ticker},
-        name => $bond->{symbol}->{description},
-        currency => $bond->{price}->{currency},
-        price => $bond->{price}->{value},
+        ticker      => $bond->{symbol}->{ticker},
+        name        => $bond->{symbol}->{description} . ($is_buyback ? ' /bb' : ''),
+        currency    => $bond->{price}->{currency},
+        price       => $bond->{price}->{value},
+        date        => $date,
+        yield       => $is_buyback ? $bond->{yieldToBuyBack} : $bond->{yieldToMaturity},
+        irr         => xirr(_get_bond_cashflow($bond, $date), precision => 0.0001),
     };
 
-    my $yield = {
-        date => $bond->{matDate},
-        yield => $bond->{yieldToMaturity},
-        irr => xirr(_get_bond_cashflow($bond, $bond->{matDate}), precision => 0.0001),
-    };
-
-    push @bonds, +{ %$item, %$yield };
-
-    next if !$need_buyback;
-    next if $bond->{matDate} eq $bond->{buyBackDate};
-
-    my $yield = {
-        date => $bond->{buyBackDate},
-        yield => $bond->{yieldToBuyBack},
-        irr => xirr(_get_bond_cashflow($bond, $bond->{buyBackDate}), precision => 0.0001),
-        name => "$bond->{symbol}->{description} /bb",
-    };
-
-    push @bonds, +{ %$item, %$yield };
+    push @bonds, $item;
 }
 
 my $sort_key = 'irr';

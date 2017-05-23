@@ -43,10 +43,12 @@ for my $bond (@$bonds_full) {
     my $cashflow = _get_bond_cashflow($bond);
 
     my $date = maxstr keys %$cashflow;
+    my $mat_date = $bond->{matDate} =~ s/T.*//r;
 
     my $item = {
         ticker      => $bond->{symbol}->{ticker},
-        name        => $bond->{symbol}->{description},
+        #name        => $bond->{symbol}->{description},
+        name        => join(' ' => $bond->{symbol}->{showName}, $date eq $mat_date ? () : "($mat_date)"),
         currency    => $bond->{price}->{currency},
         price       => $bond->{price}->{value},
         date        => $date,
@@ -68,7 +70,7 @@ for my $bond (sort {$b->{$sort_key} <=> $a->{$sort_key}} @bonds) {
 sub _format {
     my $bond = shift;
 
-    return sprintf "%20s    %-32s  %7.2f  %s  %s  %5.2f" =>
+    return sprintf "%20s  %-40s  %7.2f  %s  %s  %5.2f" =>
         $bond->{ticker},
         $bond->{name},
         $bond->{price},

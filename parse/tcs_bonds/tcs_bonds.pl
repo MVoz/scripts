@@ -7,6 +7,8 @@ use 5.018;
 use uni::perl;
 use lib::abs "../../lib";
 
+use Getopt::Long;
+
 use CachedGet;
 use HTML::TreeBuilder;
 
@@ -24,6 +26,10 @@ use Encode::Locale;
 use Log::Any::Adapter 'Stderr';
 
 binmode STDOUT, ':encoding(console_out)';
+
+GetOptions(
+    'cf|cashflow!' => \my $dump_cashflow,
+);
 
 
 my $json = get 'https://api.tinkoff.ru/trading/bonds/list?sortType=ByYieldToClient&orderType=Desc';
@@ -55,7 +61,7 @@ my $sort_key = 'irr';
 
 for my $bond (sort {$b->{$sort_key} <=> $a->{$sort_key}} @bonds) {
     say _format($bond);
-    #say Dump $bond->{cashflow};
+    say Dump $bond->{cashflow}  if $dump_cashflow;
 }
 
 

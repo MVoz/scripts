@@ -84,7 +84,7 @@ sub _format {
 sub _get_bond_cashflow {
     my ($bond, %opt) = @_;
 
-    my $tax = 0.13;
+    my $tax = $bond->{symbol}->{brand} eq 'ОФЗ' ? 0 : 0.13;
     my $comission = 0.003;
 
     my $info = _query_bond_info($bond->{symbol}->{ticker});

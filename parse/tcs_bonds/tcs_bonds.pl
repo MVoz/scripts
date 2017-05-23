@@ -31,6 +31,7 @@ GetOptions(
     'cf|cashflow!' => \my $dump_cashflow,
 );
 
+$CachedGet::DEFAULT_TIMEOUT = 7; # 1 week
 
 my $json = get 'https://api.tinkoff.ru/trading/bonds/list?sortType=ByYieldToClient&orderType=Desc';
 

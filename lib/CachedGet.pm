@@ -15,8 +15,10 @@ use Log::Any '$log';
 
 our @EXPORT = qw/ cached_get /;
 
+our $DEFAULT_TIMEOUT = 1; # in days
+
 has cache_dir => ( is => 'ro', default => './_cache' );
-has cache_timeout => ( is => 'ro', default => 1 ); # in days
+has cache_timeout => ( is => 'ro', default => sub { $DEFAULT_TIMEOUT } );
 has cache_fullname => ( is => 'ro', isa => 'Bool', default => 0 );
 has ua => ( is => 'rw', lazy_build => 1 );
 

@@ -116,10 +116,15 @@ sub _get_bond_cashflow {
         ]}
         (0 .. $#coupons);
 
+    my $taxed_part = $bond->{faceValue} > $bond->{price}->{value} - $bond->{nkd}
+        ? 1 - ($bond->{price}->{value} - $bond->{nkd}) / $bond->{faceValue}
+        : 0;
+    my $taxed_ratio = 1 - $taxed_part * $tax;
+
     my @payment_types = (
         [\@taxed_coupons, 1],
-        [$info->{maturity}, 1],
-        [[$fin], 1],
+        [$info->{maturity}, $taxed_ratio],
+        [[$fin], $taxed_ratio],
     );
 
     for my $type (@payment_types) {

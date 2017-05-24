@@ -101,17 +101,26 @@ sub _get_bond_cashflow {
 
     my $fin_date = $fin->[0];
     my $today = _datestr(Date::Calc::Today());
+    my $mat_left = sum map {$_->[1]} grep {$_->[0] gt $today} @{$info->{maturity}};
+    my $nominal = $bond->{faceValue} / $mat_left * 100;
 
     my %cashflow = ($today => $bond->{price}->{value} * (1 + $comission));
 
-    my @payment_types = (
-        [ $info->{coupons}, (1 - $tax) ],
-        [ $info->{maturity}, 1 ],
-        [ [$fin], 1 ],
-    );
+    my @coupons = grep {$_->[0] gt $today} @{$info->{coupons}};
+    my @taxed_coupons =
+        map {[
+            $coupons[$_]->[0],
+            $_
+                ? $coupons[$_]->[1] * (1 - $tax)
+                : ($bond->{nkd} + ($coupons[$_]->[1] * $nominal / 100 - $bond->{nkd}) * (1 - $tax)) / $nominal * 100
+        ]}
+        (0 .. $#coupons);
 
-    my $mat_left = sum map {$_->[1]} grep {$_->[0] gt $today} @{$info->{maturity}};
-    my $nominal = $bond->{faceValue} / $mat_left * 100;
+    my @payment_types = (
+        [\@taxed_coupons, 1],
+        [$info->{maturity}, 1],
+        [[$fin], 1],
+    );
 
     for my $type (@payment_types) {
         my ($payments, $ratio) = @$type;

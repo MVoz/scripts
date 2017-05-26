@@ -48,8 +48,11 @@ for my $bond (@$bonds_full) {
 
     my $item = {
         ticker      => $bond->{symbol}->{ticker},
-        #name        => $bond->{symbol}->{description},
-        name        => join(' ' => $bond->{symbol}->{showName}, $date eq $mat_date ? () : "($mat_date)"),
+        name        => join(' ' =>
+                            $bond->{symbol}->{description},
+                            # $bond->{symbol}->{showName},
+                            $date eq $mat_date ? () : "($mat_date)",
+                        ),
         currency    => $bond->{price}->{currency},
         price       => $bond->{price}->{value},
         date        => $date,

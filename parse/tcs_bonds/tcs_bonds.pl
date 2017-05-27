@@ -5,7 +5,8 @@ use 5.018;
 # https://api.tinkoff.ru/trading/bonds/list?pageSize=12&currentPage=200&start=0&end=2400&sortType=ByYieldToClient&orderType=Desc&country=All&sessionId=d5bdIDlm2wjXLDUDJzfP8tjZz4fplFDD.m1-api09
 
 use uni::perl;
-use lib::abs "../../lib";
+use FindBin '$Bin'; 
+use lib "$Bin/../../lib";
 
 use Getopt::Long;
 

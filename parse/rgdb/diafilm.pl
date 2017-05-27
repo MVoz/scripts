@@ -140,7 +140,7 @@ sub process_item {
     my $name = "$author - $title";
     $name =~ s#[\:\*\?\/\"\'\/]#-#g;
     $year =~ s#[\:\*\?\/\"\'\/]#-#g;
-    chop $name while length(encode utf8 => $name) > 240;
+    chop $name while length(encode utf8 => $name) > 230;
     $name .= " ($year)";
     say decode console_out => encode console_out => "$code:  $name";
 
@@ -201,7 +201,8 @@ sub process_item {
 
     if ($save_pdf) {
         my $pdf_name = encode locale_fs => "$base_dir/$name" . ($need_subdir ? ".$code" : '') . '.pdf';
-        $pdf->saveas($pdf_name);
+        eval { $pdf->saveas($pdf_name); 1 }
+        or die $! || $@;
     }
 
     return;

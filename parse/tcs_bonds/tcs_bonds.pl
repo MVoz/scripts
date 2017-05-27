@@ -49,12 +49,15 @@ for my $bond (@$bonds_full) {
 
     my $item = {
         ticker      => $bond->{symbol}->{ticker},
-        #name        => $bond->{symbol}->{description},
-        name        => join(' ' => $bond->{symbol}->{showName}, $date eq $mat_date ? () : "($mat_date)"),
+        name        => join(' ' =>
+                            $bond->{symbol}->{description},
+                            # $bond->{symbol}->{showName},
+                            $date eq $mat_date ? () : "($mat_date)",
+                        ),
         currency    => $bond->{price}->{currency},
         price       => $bond->{price}->{value},
         date        => $date,
-        irr         => xirr(%$cashflow, precision => 0.0001),
+        irr         => %$cashflow ? xirr(%$cashflow, precision => 0.0001) : 0,
         cashflow    => $cashflow,
     };
 
@@ -103,6 +106,8 @@ sub _get_bond_cashflow {
     my $fin_date = $fin->[0];
     my $today = _datestr(Date::Calc::Today());
     my $mat_left = sum map {$_->[1]} grep {$_->[0] gt $today} @{$info->{maturity}};
+    return {}  if $mat_left == 0;
+
     my $nominal = $bond->{faceValue} / $mat_left * 100;
 
     my %cashflow = ($today => $bond->{price}->{value} * (1 + $comission));

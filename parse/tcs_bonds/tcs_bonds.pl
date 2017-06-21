@@ -112,18 +112,30 @@ sub _get_bond_cashflow {
 
     my %cashflow = ($today => $bond->{price}->{value} * (1 + $comission));
 
-    my @coupons = grep {$_->[0] gt $today} @{$info->{coupons}};
+    my $accrued = $bond->{nkd};
+    my $clear_value = $bond->{price}->{value} - $accrued;
+
+    my @coupons = grep {$_->[0] ge $today} @{$info->{coupons}};
+
+    # check if nearest coupon payment already run
+    my $soon = _datestr(Date::Calc::Add_Delta_Days(Date::Calc::Today(), 14));
+    if (@coupons && $coupons[0]->[0] le $soon && $accrued < $coupons[0]->[1] * 0.9) {
+        # warn "$bond->{symbol}->{ticker}: skip coupon at $coupons[0]->[0]";
+        shift @coupons;
+    }
+
+
     my @taxed_coupons =
         map {[
             $coupons[$_]->[0],
             $_
                 ? $coupons[$_]->[1] * (1 - $tax)
-                : ($bond->{nkd} + ($coupons[$_]->[1] * $nominal / 100 - $bond->{nkd}) * (1 - $tax)) / $nominal * 100
+                : ($accrued + ($coupons[$_]->[1] * $nominal / 100 - $accrued) * (1 - $tax)) / $nominal * 100
         ]}
         (0 .. $#coupons);
 
-    my $taxed_part = $bond->{faceValue} > $bond->{price}->{value} - $bond->{nkd}
-        ? 1 - ($bond->{price}->{value} - $bond->{nkd}) / $bond->{faceValue}
+    my $taxed_part = $bond->{faceValue} > $clear_value
+        ? 1 - $clear_value / $bond->{faceValue}
         : 0;
     my $taxed_ratio = 1 - $taxed_part * $tax;
 

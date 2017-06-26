@@ -10,8 +10,7 @@ use lib "$Bin/../../lib";
 
 use Getopt::Long;
 
-use CachedGet;
-use HTML::TreeBuilder;
+use FinamBonds;
 
 use JSON;
 use YAML;
@@ -92,7 +91,7 @@ sub _get_bond_cashflow {
     my $tax = $bond->{symbol}->{brand} eq 'ОФЗ' ? 0 : 0.13;
     my $comission = 0.003;
 
-    my $info = _query_bond_info($bond->{symbol}->{ticker});
+    my $info = FinamBonds::get_bond_info($bond->{symbol}->{ticker});
 
     my $fin;
     if (my $unk_coupon = first {!$_->[1]} @{$info->{coupons}}) {
@@ -100,12 +99,12 @@ sub _get_bond_cashflow {
         $fin = first {$_->[0] lt $limit_date} reverse @{$info->{offers}};
     }
     else {
-        $fin = [ $info->{maturity}->[-1]->[0], 0 ];
+        $fin = [ $info->{redemption}->[-1]->[0], 0 ];
     }
 
     my $fin_date = $fin->[0];
     my $today = _datestr(Date::Calc::Today());
-    my $mat_left = sum map {$_->[1]} grep {$_->[0] gt $today} @{$info->{maturity}};
+    my $mat_left = sum map {$_->[1]} grep {$_->[0] gt $today} @{$info->{redemption}};
     return {}  if $mat_left == 0;
 
     my $nominal = $bond->{faceValue} / $mat_left * 100;
@@ -141,7 +140,7 @@ sub _get_bond_cashflow {
 
     my @payment_types = (
         [\@taxed_coupons, 1],
-        [$info->{maturity}, $taxed_ratio],
+        [$info->{redemption}, $taxed_ratio],
         [[$fin], $taxed_ratio],
     );
 
@@ -161,57 +160,3 @@ sub _get_bond_cashflow {
 sub _datestr { sprintf "%4d-%02d-%02d" => @_ }
 
 
-sub _query_bond_info {
-    my ($isin) = @_;
-
-    my $search_html = cached_get "http://bonds.finam.ru/issue/search/default.asp?emitterCustomName=$isin";
-    my ($finam_id) = $search_html =~ m#onclick="window.location.href = '/issue/details(\w+)/default.asp'"#;
-    die "Internal id not found"  if !$finam_id;
-
-    my @coupons;
-    my @maturity;
-    my @offers;
-    my $p = HTML::TreeBuilder->new();
-
-    my $coupons_html = cached_get "http://bonds.finam.ru/issue/details${finam_id}00002/default.asp";
-
-    my ($nominal) = $coupons_html =~ m#<td>Номинал:\&nbsp;<span>([\d\s]+)</span>#;
-    $nominal =~ s/\s//g;
-
-    $p->parse($coupons_html);
-    for my $line_node ($p->look_down(_tag => 'tr', class => qr/^bline\b/)) {
-        my (undef, $date_str, undef, undef, $coupon_str, undef, $maturity_str) = map {$_->as_text} $line_node->look_down(_tag => 'td');
-        my $date = _parse_date($date_str);
-
-        push @coupons, [$date => _parse_value($coupon_str) / $nominal * 100];
-        push @maturity, [$date => _parse_value($maturity_str) / $nominal * 100]  if _parse_value($maturity_str);
-    }
-
-    my $offers_html = cached_get "http://bonds.finam.ru/issue/details${finam_id}00003/default.asp";
-    $p->parse($offers_html);
-    for my $line_node ($p->look_down(_tag => 'tr', class => "noborder")) {
-        my (undef, $date_str, undef, $rate_str) = map {$_->as_text} $line_node->look_down(_tag => 'td');
-        push @offers, [_parse_date($date_str) => _parse_value($rate_str)];
-    }
-
-    return {
-        id => $finam_id,
-        nominal => $nominal,
-        coupons => \@coupons,
-        maturity => \@maturity,
-        offers => \@offers,
-    };
-}
-
-sub _parse_value {
-    my $str = shift;
-    my ($value) = $str =~ /(\d+(?:,\d*)?)/;
-    $value =~ tr/,/./  if $value;
-    return $value;
-}
-
-
-sub _parse_date {
-    my $str = shift;
-    return $str =~ s/(\d+)\.(\d+)\.(\d+).*/$3-$2-$1/r;
-}
